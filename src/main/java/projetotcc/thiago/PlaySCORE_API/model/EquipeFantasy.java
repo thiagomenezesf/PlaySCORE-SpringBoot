@@ -18,14 +18,12 @@ public class EquipeFantasy {
 
     private String logo;
 
-    private Double patrimonio = 100.0; // Valor inicial para comprar atletas
-    private Double pontuacaoTotalAcumulada = 0.0; // Soma de todas as rodadas
+    private Integer titulos; // Quantidade de títulos conquistados pela equipe fantasy
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario criador;
 
-    @ManyToOne
-    @JoinColumn(name = "liga_id", nullable = false)
-    private Liga liga;
+    @oneToMany(mappedBy = "equipeFantasy")
+    private List<EquipeLiga> equipesLiga; // Lista de ligas em que a equipe participa
 }

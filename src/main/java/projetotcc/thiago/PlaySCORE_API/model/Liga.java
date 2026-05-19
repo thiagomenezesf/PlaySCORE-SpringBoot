@@ -21,6 +21,11 @@ public class Liga {
 
     private String logo; // Aqui guardaremos o caminho ou URL da imagem
 
+    @NotNull(message = "O máximo de participantes na liga é obrigatório")
+    private Integer maximoParticipantes; // Limite de participantes na liga
+
+    private String descricao; // Descrição da liga
+
     // Relacionamento: Uma liga é criada por um Usuário (Dono)
     @ManyToOne
     @JoinColumn(name = "usuario_id")

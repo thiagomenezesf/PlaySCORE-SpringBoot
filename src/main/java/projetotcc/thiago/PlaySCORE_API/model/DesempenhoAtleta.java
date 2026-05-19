@@ -26,6 +26,7 @@ public class DesempenhoAtleta {
     private Integer driblesSimples = 0;
 
     private Double pontosCalculados = 0.0;
+    private Double valorAtualizado = 0.0; // Valor do atleta atualizado após a rodada
 
     @ManyToOne
     @JoinColumn(name = "rodada_id")

@@ -21,10 +21,10 @@ public class Escalacao {
     private Rodada rodada;
 
     @ManyToOne
-    @JoinColumn(name = "equipe_fantasy_id", nullable = false)
-    private EquipeFantasy equipeFantasy;
+    @JoinColumn(name = "equipe_liga_id", nullable = false)
+    private EquipeLiga equipeLiga; // Equipe de uma Liga específica em que a equipe fantasy está competindo
 
-    private Boolean ehCapitao; //Para determinar se o jogador escalado é o capitão
+    private Boolean isCapitao; //Para determinar se o jogador escalado é o capitão
 
-    Double precoMomento; //Para calcular se o Usuário teve lucro de uma escalação para outra.
+    //Double precoMomento; //Para calcular se o Usuário teve lucro de uma escalação para outra.
 }

@@ -15,10 +15,14 @@ public class DesempenhoEquipeFantasy {
     private Double pontuacaoRodada = 0.0;
 
     @ManyToOne
-    @JoinColumn(name = "equipe_fantasy_id")
-    private EquipeFantasy equipeFantasy;
+    @JoinColumn(name = "equipe_liga_id")
+    private EquipeLiga equipeLiga; // Relacionamento com EquipeLiga para saber a qual equipe fantasy e liga esse desempenho pertence
 
     @ManyToOne
     @JoinColumn(name = "rodada_id")
     private Rodada rodada;
+
+    @ManyToOne
+    @JoinColumn(name = "desempenho_atleta_id")
+    private DesempenhoAtleta desempenhoAtleta;
 }
