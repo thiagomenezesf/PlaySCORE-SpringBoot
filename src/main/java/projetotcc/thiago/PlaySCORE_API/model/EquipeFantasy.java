@@ -2,6 +2,7 @@ package projetotcc.thiago.PlaySCORE_API.model;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -20,12 +21,17 @@ public class EquipeFantasy {
 
     private String logo;
 
-    private Integer titulos; // Quantidade de títulos conquistados pela equipe fantasy
+    private Double patrimonio = 100.0;
+
+    private Integer titulos = 0; // Quantidade de títulos conquistados pela equipe fantasy
+
+    private Double pontuacaoTotal = 0.0;
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario criador;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "equipeFantasy")
     private List<EquipeLiga> equipesLiga; // Lista de ligas em que a equipe participa
 }

@@ -2,6 +2,7 @@ package projetotcc.thiago.PlaySCORE_API.model;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -17,14 +18,15 @@ public class Clube {
     @NotBlank(message = "O nome do clube é obrigatório")
     private String nome;
 
-    @NotBlank(message = "A logo do clube é obrigatoria")
     private String logo;
+
+    private String sigla;
 
     @ManyToOne
     @JoinColumn(name = "campeonato_id")
     private Campeonato campeonato;
 
-    // Uma equipe tem muitos atletas (opcional colocar o mapeamento aqui agora)
+    @JsonIgnore
     @OneToMany(mappedBy = "clube")
     private List<Atleta> atletas;
 }

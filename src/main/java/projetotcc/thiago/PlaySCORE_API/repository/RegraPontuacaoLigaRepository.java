@@ -6,6 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface RegraPontuacaoLigaRepository extends JpaRepository<RegraPontuacaoLiga, Long> {
-    // Aqui o Spring já te dá de graça os métodos:
-    // save(), findAll(), findById(), delete()... sem você digitar nada!
+    java.util.List<RegraPontuacaoLiga> findByLigaId(Long ligaId);
 }

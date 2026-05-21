@@ -6,6 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface EquipeLigaRepository extends JpaRepository<EquipeLiga, Long> {
-    // Aqui o Spring já te dá de graça os métodos:
-    // save(), findAll(), findById(), delete()... sem você digitar nada!
+    java.util.List<EquipeLiga> findByLigaId(Long ligaId);
 }

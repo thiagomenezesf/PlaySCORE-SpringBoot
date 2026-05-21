@@ -1,29 +1,43 @@
 package projetotcc.thiago.PlaySCORE_API.controller;
 
-import projetotcc.thiago.PlaySCORE_API.model.Usuario;
-import projetotcc.thiago.PlaySCORE_API.repository.UsuarioRepository;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import projetotcc.thiago.PlaySCORE_API.dto.UsuarioRequest;
+import projetotcc.thiago.PlaySCORE_API.model.Usuario;
+import projetotcc.thiago.PlaySCORE_API.service.UsuarioService;
 
 import java.util.List;
 
-@RestController // Diz que esta classe é uma API
-@RequestMapping("/usuarios") // Define que a URL base será http://localhost:8080/usuarios
+@RestController
+@RequestMapping("/usuarios")
 public class UsuarioController {
 
-    @Autowired // Faz o Spring "injetar" o repositório aqui automaticamente
-    private UsuarioRepository usuarioRepository;
+    @Autowired
+    private UsuarioService usuarioService;
 
-    // ROTA PARA LISTAR TODOS (GET)
     @GetMapping
     public List<Usuario> listarTodos() {
-        return usuarioRepository.findAll();
+        return usuarioService.listarTodos();
     }
 
-    // ROTA PARA SALVAR UM NOVO (POST)
+    @GetMapping("/{id}")
+    public Usuario buscarPorId(@PathVariable Long id) {
+        return usuarioService.buscarPorId(id);
+    }
+
     @PostMapping
-    public Usuario salvar(@RequestBody Usuario usuario) {
-        // O @RequestBody pega o JSON que o Front enviar e transforma em objeto Usuario
-        return usuarioRepository.save(usuario);
+    public Usuario salvar(@Valid @RequestBody UsuarioRequest request) {
+        return usuarioService.salvar(request);
+    }
+
+    @PutMapping("/{id}")
+    public Usuario atualizar(@PathVariable Long id, @Valid @RequestBody UsuarioRequest request) {
+        return usuarioService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        usuarioService.deletar(id);
     }
 }

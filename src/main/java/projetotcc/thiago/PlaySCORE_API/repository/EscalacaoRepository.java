@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface EscalacaoRepository extends JpaRepository<Escalacao, Long> {
-    // Aqui o Spring já te dá de graça os métodos:
-    // save(), findAll(), findById(), delete()... sem você digitar nada!
+public interface EscalacaoRepository extends JpaRepository<Escalacao, String> {
+    java.util.List<Escalacao> findByEquipeLigaIdAndRodadaId(Long equipeLigaId, Long rodadaId);
+    java.util.List<Escalacao> findByRodadaId(Long rodadaId);
 }

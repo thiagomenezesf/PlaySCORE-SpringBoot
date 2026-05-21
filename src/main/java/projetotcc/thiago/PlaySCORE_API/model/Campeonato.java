@@ -18,10 +18,14 @@ public class Campeonato {
 
     private String logo; // Aqui guardaremos o caminho ou URL da imagem
 
-    @NotBlank(message = "O tipo de jogo (ex: 'FUSTAL', 'CAMPO', 'SOCIETY') deve ser definido")
-    private String tipoJogo; // Ex: "FUSTAL", "CAMPO", "SOCIETY"
+    @NotBlank(message = "O tipo de jogo (ex: 'FUTSAL', 'CAMPO', 'FUT7') deve ser definido")
+    private String tipoJogo; // Ex: "FUTSAL", "CAMPO", "FUT7"
+
+    private Integer numeroDeJogadoresJogando;
 
     private String descricao;
+
+    private String status;
 
     // Relacionamento: Um campeonato é criado por um Usuário (Dono)
     @ManyToOne
