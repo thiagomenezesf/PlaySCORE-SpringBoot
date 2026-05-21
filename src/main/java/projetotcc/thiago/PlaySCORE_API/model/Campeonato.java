@@ -2,7 +2,6 @@ package projetotcc.thiago.PlaySCORE_API.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Entity
@@ -19,7 +18,7 @@ public class Campeonato {
 
     private String logo; // Aqui guardaremos o caminho ou URL da imagem
 
-    @NotBlank(message = "O tipo de jogo (ex: "FUSTAL", "CAMPO", "SOCIETY") deve ser definido")
+    @NotBlank(message = "O tipo de jogo (ex: 'FUSTAL', 'CAMPO', 'SOCIETY') deve ser definido")
     private String tipoJogo; // Ex: "FUSTAL", "CAMPO", "SOCIETY"
 
     private String descricao;

@@ -1,5 +1,7 @@
 package projetotcc.thiago.PlaySCORE_API.model;
 
+import java.util.List;
+
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
@@ -24,6 +26,6 @@ public class EquipeFantasy {
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario criador;
 
-    @oneToMany(mappedBy = "equipeFantasy")
+    @OneToMany(mappedBy = "equipeFantasy")
     private List<EquipeLiga> equipesLiga; // Lista de ligas em que a equipe participa
 }
