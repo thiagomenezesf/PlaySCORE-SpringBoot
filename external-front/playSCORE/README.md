@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+# PlaySCORE
+=======
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -71,3 +74,4 @@ export default defineConfig([
   },
 ])
 ```
+>>>>>>> f29cab6 (Arrumando a organização dos arquivos e adicionando arquivos que estavam em falta, como a página de campeonatos.)
