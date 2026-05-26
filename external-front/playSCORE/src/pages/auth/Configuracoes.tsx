@@ -10,11 +10,13 @@ import { Input } from '@/components/ui/input'
 
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
+import api from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function Configuracoes() {
   const navigate = useNavigate()
-
-    const { toast } = useToast()
+  const { toast } = useToast()
+  const { user } = useAuth()
 
   // 🔒 SENHA
   const [senhaAtual, setSenhaAtual] = useState('')
@@ -58,17 +60,33 @@ export default function Configuracoes() {
       return
     }
 
-    // 🔥 FUTURO: API
-    else {
-      toast({
-              title: 'Sucesso ao salvar',
-              description: 'Você mudou sua senha com sucesso!',
-            })
-    }
+    ;(async () => {
+      try {
+        if (!user) throw new Error('Usuário não autenticado')
 
-    setSenhaAtual('')
-    setNovaSenha('')
-    setConfirmarSenha('')
+        await api.updateUsuario(user.id, {
+          nome: user.nome,
+          email: user.email,
+          senha: novaSenha,
+        })
+
+        toast({
+          title: 'Sucesso ao salvar',
+          description: 'Você mudou sua senha com sucesso!',
+        })
+      } catch (error) {
+        console.error('Erro ao atualizar senha', error)
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível alterar a senha no servidor.',
+          variant: 'destructive'
+        })
+      } finally {
+        setSenhaAtual('')
+        setNovaSenha('')
+        setConfirmarSenha('')
+      }
+    })()
   }
 
   // 🔥 ALTERAR EMAIL
@@ -94,16 +112,30 @@ export default function Configuracoes() {
       return
     }
 
-    else {
-      toast({
-              title: 'Sucesso ao alterar email',
-              description: 'Email alterado com sucesso!',
-            })
-    }
+    ;(async () => {
+      try {
+        if (!user) throw new Error('Usuário não autenticado')
+        if (!senhaAtual) {
+          toast({ title: 'Senha necessária', description: 'Digite sua senha atual para confirmar a alteração.', variant: 'destructive' })
+          return
+        }
 
-    // 🔥 FUTURO: API
-    setEmail(novoEmail)
-    setNovoEmail('')
+        await api.updateUsuario(user.id, {
+          nome: user.nome,
+          email: novoEmail,
+          senha: senhaAtual,
+        })
+
+        toast({ title: 'Sucesso ao alterar email', description: 'Email alterado com sucesso!' })
+        setEmail(novoEmail)
+        setNovoEmail('')
+      } catch (error) {
+        console.error('Erro ao alterar email', error)
+        toast({ title: 'Erro', description: 'Não foi possível alterar o email no servidor.', variant: 'destructive' })
+      } finally {
+        setSenhaAtual('')
+      }
+    })()
   }
 
   return (

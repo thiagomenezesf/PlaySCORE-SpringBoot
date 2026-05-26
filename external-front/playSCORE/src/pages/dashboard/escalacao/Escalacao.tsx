@@ -13,6 +13,19 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import api from '@/lib/api'
 import type { Atleta } from '@/types'
+import {
+  mockAtletas,
+  mockClubes,
+  mockEscalacao,
+  mockRodadas,
+  mockCampeonatoRodadas,
+  mockDesempenhoAtleta,
+  mockDesempenhoEquipeFantasy,
+  mockEquipesFantasy,
+  mockLigas,
+  mockEquipeLiga,
+  mockCampeonatos,
+} from '@/mocks/database'
 import { Toaster } from '@/components/ui/toaster'
 import { X } from 'lucide-react'
 import { layoutsPorTipo, tiposJogo, posicaoLabels, posicaoColors } from '@/lib/jogo-config'
@@ -49,6 +62,7 @@ export default function EscalacaoPage() {
   const [apiClubes, setApiClubes] = useState<any[] | null>(null)
   const [apiEscalacao, setApiEscalacao] = useState<any[] | null>(null)
   const [apiRodadas, setApiRodadas] = useState<any[] | null>(null)
+  const [apiCampeonatos, setApiCampeonatos] = useState<any[] | null>(null)
   const [apiCampeonatoRodadas, setApiCampeonatoRodadas] = useState<any[] | null>(null)
   const [apiDesempenhoAtleta, setApiDesempenhoAtleta] = useState<any[] | null>(null)
   const [apiDesempenhoEquipeFantasy, setApiDesempenhoEquipeFantasy] = useState<any[] | null>(null)
@@ -64,6 +78,7 @@ export default function EscalacaoPage() {
     api.listClubes().then((d) => setApiClubes(d)).catch(() => null)
     api.listEscalacoes().then((d) => setApiEscalacao(d)).catch(() => null)
     api.listRodadas().then((d) => setApiRodadas(d)).catch(() => null)
+    api.listCampeonatos().then((d) => setApiCampeonatos(d)).catch(() => null)
     api.listCampeonatoRodadas().then((d) => setApiCampeonatoRodadas(d)).catch(() => null)
     api.listDesempenhoAtleta().then((d) => setApiDesempenhoAtleta(d)).catch(() => null)
     api.listDesempenhoEquipeFantasy().then((d) => setApiDesempenhoEquipeFantasy(d)).catch(() => null)
@@ -84,7 +99,8 @@ export default function EscalacaoPage() {
   const equipeLigaSource = apiEquipeLiga ?? mockEquipeLiga
 
   const liga = ligasSource.find(l => l.id === ligaIdNumber)
-  const campeonato = liga ? (mockCampeonatos.find(c => c.id === liga.idCampeonato) ?? null) : null
+  const campeonatosSource = apiCampeonatos ?? mockCampeonatos
+  const campeonato = liga ? (campeonatosSource.find(c => c.id === liga.idCampeonato) ?? null) : null
   const equipeFantasy = equipesFantasySource.find(equipe => equipe.idUsuario === user?.id)
   const equipeLiga = liga && equipeFantasy ? equipeLigaSource.find(el => el.idLiga === liga.id && el.idEquipeFantasy === equipeFantasy.id) : null
   
@@ -108,11 +124,11 @@ export default function EscalacaoPage() {
   // Preparar mercado com atletas do database
   const mercado = atletasSource
     .map(atleta => {
-      const clube = mockClubes.find(c => c.id === atleta.idClube)
+      const clube = clubesSource.find(c => c.id === atleta.idClube)
       const desempenho = rodadaAtual
-        ? mockDesempenhoAtleta.find(d => d.idAtleta === atleta.id && d.idRodada === rodadaAtual.id)
+        ? desempenhoAtletaSource.find(d => d.idAtleta === atleta.id && d.idRodada === rodadaAtual.id)
         : undefined
-      const pontos = calcularPontosAtleta(atleta.id, rodadaAtual?.id ?? null, mockDesempenhoAtleta)
+      const pontos = calcularPontosAtleta(atleta.id, rodadaAtual?.id ?? null, desempenhoAtletaSource)
       return {
         ...atleta,
         clube: {
@@ -152,10 +168,10 @@ export default function EscalacaoPage() {
   // Carregar atletas escalados na rodada atual
   const atletasEscaladosIds = escalacoesExistentes.map(e => e.idAtleta)
   const atletasEscaladosCarregados: JogadorEscalado[] = atletasEscaladosIds.map(atletaId => {
-    const atleta = mockAtletas.find(a => a.id === atletaId)
-    const clube = atleta ? mockClubes.find(c => c.id === atleta.idClube) : null
+    const atleta = atletasSource.find(a => a.id === atletaId)
+    const clube = atleta ? clubesSource.find(c => c.id === atleta.idClube) : null
     const desempenhoAtletaCarregado = atleta
-      ? mockDesempenhoAtleta.find(d => d.idAtleta === atleta.id && d.idRodada === rodadaAtual?.id)
+      ? desempenhoAtletaSource.find(d => d.idAtleta === atleta.id && d.idRodada === rodadaAtual?.id)
       : undefined
     return {
       id: atletaId,
@@ -164,7 +180,7 @@ export default function EscalacaoPage() {
       preco: calcularValorAtualizado(atleta?.precoInicial || 0, desempenhoAtletaCarregado),
       clube: clube?.nome || '',
       isCapitao: escalacoesExistentes.find(e => e.idAtleta === atletaId)?.isCapitao || false,
-      pontuacao: calcularPontosAtleta(atletaId, rodadaAtual?.id ?? null, mockDesempenhoAtleta) || getPontuacaoJogador(atletaId),
+      pontuacao: calcularPontosAtleta(atletaId, rodadaAtual?.id ?? null, desempenhoAtletaSource) || getPontuacaoJogador(atletaId),
       foto: atleta?.foto
     }
   })
@@ -249,7 +265,7 @@ export default function EscalacaoPage() {
     setTime({ ...time, escalados: [] })
   }
 
-  const handleSalvar = () => {
+  const handleSalvar = async () => {
     const formacaoCompleta = (Object.entries(formacao.estrutura) as [Atleta['posicao'], number][]) 
       .every(([pos, limite]) => time.escalados.filter(a => a.posicao === pos).length === limite)
 
@@ -262,10 +278,37 @@ export default function EscalacaoPage() {
       return
     }
 
-    toast({
-      title: 'Escalação salva',
-      description: 'Seu time foi salvo com sucesso!'
-    })
+    if (!rodadaAtual || !equipeLiga || !equipeFantasy) {
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Dados da rodada ou equipe não encontrados.',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    try {
+      // Envia uma requisição para cada jogador escalado
+      await Promise.all(time.escalados.map(j => api.createEscalacao({
+        idAtleta: j.id,
+        idRodada: rodadaAtual.id,
+        idEquipeLiga: equipeLiga.id,
+        idEquipeFantasy: equipeFantasy.id,
+        isCapitao: !!j.isCapitao
+      })))
+
+      toast({
+        title: 'Escalação salva',
+        description: 'Seu time foi salvo com sucesso!'
+      })
+    } catch (e: any) {
+      console.error('Erro ao salvar escalação', e)
+      toast({
+        title: 'Falha ao salvar',
+        description: e?.message || 'Erro desconhecido ao comunicar com o servidor',
+        variant: 'destructive'
+      })
+    }
   }
 
   const getJogadores = (pos: Atleta['posicao']) =>

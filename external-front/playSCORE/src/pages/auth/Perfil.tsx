@@ -121,15 +121,32 @@ export default function Perfil() {
   }
 
   console.log('Salvar dados:', editData)
+  ;(async () => {
+    try {
+      if (equipeFantasy && equipeFantasy.id) {
+        await api.updateEquipeFantasy(equipeFantasy.id, {
+          nome: editData.nomeEquipe,
+          logo: editData.logo,
+          idUsuario: user.id,
+          patrimonio: equipeFantasy.patrimonio ?? 0,
+          titulos: equipeFantasy.titulos ?? 0,
+        })
+      }
 
-  toast({
-    title: 'Perfil Salvo',
-    description: 'Seu perfil foi editado com sucesso!'
-  })
-
-  // futuramente integrar com backend
-
-  setEditando(false)
+      toast({
+        title: 'Perfil Salvo',
+        description: 'Seu perfil foi editado com sucesso!'
+      })
+      setEditando(false)
+    } catch (error) {
+      console.error('Erro ao salvar perfil', error)
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Não foi possível salvar o perfil no servidor.',
+        variant: 'destructive'
+      })
+    }
+  })()
 }
 
   const handleCancel = () => {

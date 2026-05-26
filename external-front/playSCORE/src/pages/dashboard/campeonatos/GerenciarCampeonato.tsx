@@ -113,8 +113,23 @@ export default function GerenciarCampeonatoPage() {
   }
 
   const handleAddClube = () => {
-    console.log('Adicionando clube:', novoClube)
-    setNovoClube({ nome: '', sigla: '', logo: '' })
+    if (!isOwner) return
+
+    ;(async () => {
+      try {
+        const payload = {
+          nome: novoClube.nome,
+          sigla: novoClube.sigla,
+          logo: novoClube.logo,
+          idCampeonato: campeonato.id,
+        }
+        const created = await api.createClube(payload)
+        setClubes([...clubes, created])
+        setNovoClube({ nome: '', sigla: '', logo: '' })
+      } catch (error) {
+        console.error('Erro ao criar clube', error)
+      }
+    })()
   }
 
   const handleEditClube = (clube: Clube) => {
@@ -134,8 +149,24 @@ export default function GerenciarCampeonatoPage() {
   }
 
   const handleAddAtleta = () => {
-    console.log('Adicionando atleta:', novoAtleta)
-    setNovoAtleta({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '' })
+    if (!isOwner) return
+
+    ;(async () => {
+      try {
+        const payload = {
+          nome: novoAtleta.nome,
+          posicao: novoAtleta.posicao,
+          precoInicial: parseFloat(novoAtleta.precoInicial || '0'),
+          foto: novoAtleta.foto,
+          idClube: Number(novoAtleta.clubeId),
+        }
+        const created = await api.createAtleta(payload)
+        setAtletas([...atletas, created])
+        setNovoAtleta({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '' })
+      } catch (error) {
+        console.error('Erro ao criar atleta', error)
+      }
+    })()
   }
 
   const handleEditAtleta = (atleta: Atleta) => {

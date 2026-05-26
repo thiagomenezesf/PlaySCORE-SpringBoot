@@ -32,14 +32,21 @@ export const api = {
   listClubes: () => request('/clubes'),
   listUsuarios: () => request('/usuarios'),
   getUsuario: (id: number) => request(`/usuarios/${id}`),
+  updateUsuario: (id: number, body: any) => request(`/usuarios/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  createUsuario: (body: any) => request('/usuarios', { method: 'POST', body: JSON.stringify(body) }),
   listRodadas: () => request('/rodadas'),
   listCampeonatoRodadas: () => request('/campeonato-rodadas'),
   listDesempenhoAtleta: () => request('/desempenho-atleta'),
   listDesempenhoEquipeFantasy: () => request('/desempenho-equipe-fantasy'),
   listRegraPontuacaoLiga: () => request('/regras-pontuacao-liga'),
   listEquipesFantasy: () => request('/equipe-fantasy'),
+  getEquipeFantasy: (id: number) => request(`/equipe-fantasy/${id}`),
+  updateEquipeFantasy: (id: number, body: any) => request(`/equipe-fantasy/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  createEquipeFantasy: (body: any) => request('/equipe-fantasy', { method: 'POST', body: JSON.stringify(body) }),
   listLigas: () => request('/ligas'),
   listEquipeLiga: () => request('/equipe-liga'),
+  createClube: (body: any) => request('/clubes', { method: 'POST', body: JSON.stringify(body) }),
+  createAtleta: (body: any) => request('/atletas', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 export default api;

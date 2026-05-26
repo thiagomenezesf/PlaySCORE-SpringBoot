@@ -6,6 +6,8 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Logo } from '@/components/playscore/logo'
+import api from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function CadastroPage() {
   const navigate = useNavigate()
@@ -19,6 +21,8 @@ export default function CadastroPage() {
     confirmarSenha: '',
   })
   const [error, setError] = useState('')
+
+  const { loginAs } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,13 +39,31 @@ export default function CadastroPage() {
     }
 
     setIsLoading(true)
+    try {
+      const created = await api.createUsuario({
+        nome: formData.nome,
+        email: formData.email,
+        senha: formData.senha,
+      })
 
-    // TODO: Integrar com Spring Boot via Axios
-    // Simulando cadastro
-    await new Promise(resolve => setTimeout(resolve, 1000))
+      // criar equipe fantasy padrão para o usuário
+      await api.createEquipeFantasy({
+        nome: `${formData.nome.split(' ')[0]} FC`,
+        logo: '',
+        idUsuario: created.id,
+        patrimonio: 100,
+        titulos: 0,
+      })
 
-    // Redirecionar para login apos cadastro
-    navigate('/login')
+      // logar automaticamente
+      loginAs(created.id)
+      navigate('/dashboard')
+    } catch (error: any) {
+      console.error('Erro ao cadastrar', error)
+      setError(error?.message || 'Erro ao cadastrar no servidor')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
