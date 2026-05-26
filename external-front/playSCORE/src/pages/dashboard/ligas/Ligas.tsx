@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Plus, Trophy, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -9,39 +9,72 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { LeagueCard } from '@/components/playscore/league-card'
 import { useAuth } from '@/hooks/use-auth'
-import { mockLigas, mockCampeonatos, mockEquipesFantasy, mockEquipeLiga } from '@/mocks/database'
+import api from '@/lib/api'
 
 export default function LigasPage() {
   const { user } = useAuth()
   const [searchTerm, setSearchTerm] = useState('')
+  const [ligas, setLigas] = useState<any[]>([])
+  const [campeonatos, setCampeonatos] = useState<any[]>([])
+  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
+  const [equipeLiga, setEquipeLiga] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ligasData, campeonatosData, equipesFantasyData, equipeLigaData] = await Promise.all([
+          api.listLigas(),
+          api.listCampeonatos(),
+          api.listEquipesFantasy(),
+          api.listEquipeLiga(),
+        ])
+
+        setLigas(ligasData)
+        setCampeonatos(campeonatosData)
+        setEquipesFantasy(equipesFantasyData)
+        setEquipeLiga(equipeLigaData)
+      } catch (error) {
+        console.error('Erro ao carregar ligas', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [])
 
   const ligasComExtras = useMemo(
     () =>
-      mockLigas.map((liga) => ({
+      ligas.map((liga) => ({
         ...liga,
         descricao: 'Liga competitiva para testar seu time.',
-        participantes: mockEquipeLiga.filter((equipe) => equipe.idLiga === liga.id).length,
-        campeonatoNome: mockCampeonatos.find((camp) => camp.id === liga.idCampeonato)?.nome ?? '',
+        participantes: equipeLiga.filter((equipe) => equipe.idLiga === liga.id).length,
+        campeonatoNome: campeonatos.find((camp) => camp.id === liga.idCampeonato)?.nome ?? '',
       })),
 
-    []
+    [ligas, campeonatos, equipeLiga]
   )
 
   const userFantasyTeamIds = useMemo(
     () =>
       user
-        ? mockEquipesFantasy.filter((equipe) => equipe.idUsuario === user.id).map((equipe) => equipe.id)
+        ? equipesFantasy.filter((equipe) => equipe.idUsuario === user.id).map((equipe) => equipe.id)
         : [],
-    [user]
+    [user, equipesFantasy]
   )
 
   const mockTodasLigas = ligasComExtras
   const mockLigasCriadas = ligasComExtras.filter((liga) => user?.id != null && liga.idUsuarioCriador === user.id)
   const mockLigasParticipo = ligasComExtras.filter((liga) =>
     userFantasyTeamIds.some((teamId) =>
-      mockEquipeLiga.some((entry) => entry.idLiga === liga.id && entry.idEquipeFantasy === teamId)
+      equipeLiga.some((entry) => entry.idLiga === liga.id && entry.idEquipeFantasy === teamId)
     )
   )
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-12">Carregando...</div>
+  }
 
   return (
     <div className="space-y-6">

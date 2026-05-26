@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Shield, Upload, Users, Plus, Trash2, Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { mockAtletas, mockClubes, mockCampeonatos } from '@/mocks/database'
+import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import type { Atleta, Campeonato, Clube } from '@/types'
 import { posicaoLabels, tipoJogoOptions, posicoesPorTipoJogo } from '@/lib/jogo-config'
@@ -22,14 +22,50 @@ export default function GerenciarCampeonatoPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuth()
-  const campeonato = (mockCampeonatos as Campeonato[]).find((camp) => camp.id === Number(id))
+  const [campeonatos, setCampeonatos] = useState<Campeonato[]>([])
+  const [clubes, setClubes] = useState<Clube[]>([])
+  const [atletas, setAtletas] = useState<Atleta[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  const [formData, setFormData] = useState(() => ({
-    nome: campeonato?.nome ?? '',
-    descricao: (campeonato as Campeonato | undefined)?.descricao ?? '',
-    tipoJogo: campeonato?.tipoJogo ?? 'CAMPO',
-    status: (campeonato as Campeonato | undefined)?.status ?? 'ativo',
-  }))
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [campeonatosData, clubesData, atletasData] = await Promise.all([
+          api.listCampeonatos(),
+          api.listClubes(),
+          api.listAtletas(),
+        ])
+        setCampeonatos(campeonatosData)
+        setClubes(clubesData)
+        setAtletas(atletasData)
+      } catch (error) {
+        console.error('Erro ao carregar dados do campeonato', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const campeonato = campeonatos.find((camp) => camp.id === Number(id))
+
+  const [formData, setFormData] = useState({
+    nome: '',
+    descricao: '',
+    tipoJogo: 'CAMPO',
+    status: 'ativo',
+  })
+
+  useEffect(() => {
+    if (campeonato) {
+      setFormData({
+        nome: campeonato.nome || '',
+        descricao: campeonato.descricao || '',
+        tipoJogo: campeonato.tipoJogo || 'CAMPO',
+        status: campeonato.status || 'ativo',
+      })
+    }
+  }, [campeonato])
 
   const [activeTab, setActiveTab] = useState('info')
   const [novoClube, setNovoClube] = useState({ nome: '', sigla: '', logo: '' })
@@ -54,14 +90,18 @@ export default function GerenciarCampeonatoPage() {
     foto: '',
   })
 
+  if (isLoading) {
+    return <div className="p-6">Carregando dados do campeonato...</div>
+  }
+
   if (!campeonato) {
     return <div className="p-6">Campeonato não encontrado</div>
   }
 
   const isOwner = campeonato.idUsuario === user?.id
-  const clubes = (mockClubes as Clube[]).filter((clube) => clube.idCampeonato === campeonato.id)
-  const atletas = (mockAtletas as Atleta[]).filter((atleta) => clubes.some((clube) => clube.id === atleta.idClube))
-  const atletasFiltrados = clubeFiltro === 'ALL' ? atletas : atletas.filter(a => a.idClube === clubeFiltro)
+  const clubesDoCampeonato = clubes.filter((clube) => clube.idCampeonato === campeonato.id)
+  const atletasDoCampeonato = atletas.filter((atleta) => clubesDoCampeonato.some((clube) => clube.id === atleta.idClube))
+  const atletasFiltrados = clubeFiltro === 'ALL' ? atletasDoCampeonato : atletasDoCampeonato.filter(a => a.idClube === clubeFiltro)
   const posicaoOptions = posicoesPorTipoJogo[formData.tipoJogo] ?? ['GOL', 'ZAG', 'LAT', 'MEI', 'ATA']
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -225,11 +265,11 @@ export default function GerenciarCampeonatoPage() {
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Clubes</span>
-                    <span>{clubes.length}</span>
+                    <span>{clubesDoCampeonato.length}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Atletas</span>
-                    <span>{atletas.length}</span>
+                    <span>{atletasDoCampeonato.length}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Status</span>
@@ -343,8 +383,8 @@ export default function GerenciarCampeonatoPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {clubes.map((clube) => {
-                    const atletaCount = atletas.filter((atleta) => atleta.idClube === clube.id).length
+                  {clubesDoCampeonato.map((clube) => {
+                    const atletaCount = atletasDoCampeonato.filter((atleta) => atleta.idClube === clube.id).length
                     return (
                       <TableRow key={clube.id}>
                         <TableCell>
@@ -484,7 +524,7 @@ export default function GerenciarCampeonatoPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Todos os clubes</SelectItem>
-                {clubes.map((clube) => (
+                {clubesDoCampeonato.map((clube) => (
                   <SelectItem key={clube.id} value={clube.id.toString()}>
                     {clube.nome}
                   </SelectItem>
@@ -543,7 +583,7 @@ export default function GerenciarCampeonatoPage() {
                         <SelectValue placeholder="Selecione um clube" />
                       </SelectTrigger>
                       <SelectContent>
-                        {clubes.map((clube) => (
+                        {clubesDoCampeonato.map((clube) => (
                           <SelectItem key={clube.id} value={clube.id.toString()}>
                             {clube.nome}
                           </SelectItem>
@@ -631,7 +671,7 @@ export default function GerenciarCampeonatoPage() {
                 </TableHeader>
                 <TableBody>
                   {atletasFiltrados.map((atleta) => {
-                    const clube = clubes.find((c) => c.id === atleta.idClube)
+                    const clube = clubesDoCampeonato.find((c) => c.id === atleta.idClube)
                     return (
                       <TableRow key={atleta.id}>
                         <TableCell>
@@ -736,7 +776,7 @@ export default function GerenciarCampeonatoPage() {
                         </SelectTrigger>
 
                         <SelectContent>
-                          {clubes.map((clube) => (
+                          {clubesDoCampeonato.map((clube) => (
                             <SelectItem key={clube.id} value={clube.id.toString()}>
                               {clube.nome}
                             </SelectItem>

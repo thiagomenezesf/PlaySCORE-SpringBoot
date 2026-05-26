@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Logo } from '@/components/playscore/logo'
 import { useAuth } from '@/hooks/use-auth'
-import { mockUsuarios } from '@/mocks/database'
+import api from '@/lib/api'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -24,29 +24,43 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
+    setError('')
 
-    // TODO: Integrar com Spring Boot via Axios
-    await new Promise((resolve) => setTimeout(resolve, 1000))
+    try {
+      const usuarios = await api.listUsuarios()
+      const user = usuarios.find(
+        (u: any) => u.email === formData.email && u.senha === formData.senha
+      )
 
-    const user = mockUsuarios.find(
-      (u) => u.email === formData.email && u.senha === formData.senha
-    )
+      if (!user) {
+        setError('E-mail ou senha inválidos. Use uma combinação válida.')
+        setIsLoading(false)
+        return
+      }
 
-    if (!user) {
-      setError('E-mail ou senha inválidos. Use uma combinação válida.')
+      loginAs(user.id)
+      navigate('/dashboard')
+    } catch (err) {
+      setError('Erro ao conectar com o servidor. Tente novamente.')
       setIsLoading(false)
-      return
     }
-
-    loginAs(user.id)
-    navigate('/dashboard')
   }
 
   const handleQuickLogin = async () => {
     setIsLoading(true)
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    loginAs(1)
-    navigate('/dashboard')
+    try {
+      const user = await api.getUsuario(1)
+      if (user) {
+        loginAs(1)
+        navigate('/dashboard')
+      } else {
+        setError('Usuário rápido não encontrado no servidor.')
+        setIsLoading(false)
+      }
+    } catch {
+      setError('Não foi possível efetuar login rápido. Verifique o servidor.')
+      setIsLoading(false)
+    }
   }
 
   return (

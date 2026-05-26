@@ -1,7 +1,10 @@
-/* ================= MOCKS BASEADOS NO BANCO DE DADOS ================= */
+/* ================= DADOS (mock ou API) ================= */
+import api from '@/lib/api'
 
-//USUÁRIOS
-export const mockUsuarios = [
+const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+
+// USUÁRIOS (padrão: mocks, serão sobrescritos pela API se disponível)
+export let mockUsuarios = [
   {
     id: 1,
     nome: 'Thiago',
@@ -25,7 +28,7 @@ export const mockUsuarios = [
 ]
 
 //CAMPEONATOS
-export const mockCampeonatos = [
+export let mockCampeonatos = [
   {
     id: 1,
     nome: 'Campeonato Várzea 2024',
@@ -55,7 +58,7 @@ export const mockCampeonatos = [
 ]
 
 //LIGAS
-export const mockLigas = [
+export let mockLigas = [
   {
     id: 1,
     nome: 'Liga dos Amigos',
@@ -91,7 +94,7 @@ export const mockLigas = [
 ]
 
 //CLUBES
-export const mockClubes = [
+export let mockClubes = [
   {
     id: 1,
     nome: 'Palmeirinha FC',
@@ -115,7 +118,7 @@ export const mockClubes = [
 ]
 
 //ATLETAS
-export const mockAtletas = [
+export let mockAtletas = [
   {
     id: 1,
     nome: 'Gabriel Nunes',
@@ -311,7 +314,7 @@ export const mockAtletas = [
 ]
 
 //RODADAS
-export const mockRodadas = [
+export let mockRodadas = [
   {
     id: 1,
     status: 'ABERTO',
@@ -335,7 +338,7 @@ export const mockRodadas = [
 ]
 
 // Relaciona campeonato com a rodada atual do campeonato
-export const mockCampeonatoRodadas = [
+export let mockCampeonatoRodadas = [
   {
     id: 1,
     idCampeonato: 1,
@@ -349,7 +352,7 @@ export const mockCampeonatoRodadas = [
 ]
 
 //EQUIPES FANTASY
-export const mockEquipesFantasy = [
+export let mockEquipesFantasy = [
   {
     id: 1,
     nome: 'Time do Thiago',
@@ -376,7 +379,7 @@ export const mockEquipesFantasy = [
 ]
 
 //DESEMPENHO_ATLETA
-export const mockDesempenhoAtleta = [
+export let mockDesempenhoAtleta = [
   {
     id: 1,
     gols: 2,
@@ -455,7 +458,7 @@ export const mockDesempenhoAtleta = [
 ]
 
 //REGRA_PONTUACAO_LIGA
-export const mockRegraPontuacaoLiga = [
+export let mockRegraPontuacaoLiga = [
   {
     id: 1,
     acao: 'GOLS',
@@ -514,7 +517,7 @@ export const mockRegraPontuacaoLiga = [
 ]
 
 //ESCALACAO
-export const mockEscalacao = [
+export let mockEscalacao = [
   {
     id: 'esc1',
     idAtleta: 1,
@@ -567,7 +570,7 @@ export const mockEscalacao = [
 ]
 
 //DESEMPENHO_EQUIPE_FANTASY
-export const mockDesempenhoEquipeFantasy = [
+export let mockDesempenhoEquipeFantasy = [
   {
     id: 1,
     pontuacaoRodada: 5.5,
@@ -606,7 +609,7 @@ export const mockDesempenhoEquipeFantasy = [
 ]
 
 //EQUIPE_LIGA
-export const mockEquipeLiga = [
+export let mockEquipeLiga = [
   {
     id: 1,
     idLiga: 1,
@@ -639,4 +642,42 @@ export const mockEquipeLiga = [
     idEquipeFantasy: 2
   }
 ]
+
+// Se não usar mocks, tenta carregar dados da API e sobrescrever as variáveis.
+if (!useMocks) {
+  ;(async () => {
+    try {
+      const [usuarios, campeonatos, ligas, clubes, atletas, rodadas, campeonatoRodadas, equipesFantasy, desempenhoAtleta, desempenhoEquipeFantasy, regras, equipeLiga] = await Promise.all([
+        api.listUsuarios().catch(() => null),
+        api.listCampeonatos().catch(() => null),
+        api.listLigas().catch(() => null),
+        api.listClubes().catch(() => null),
+        api.listAtletas().catch(() => null),
+        api.listRodadas().catch(() => null),
+        api.listCampeonatoRodadas().catch(() => null),
+        api.listEquipesFantasy().catch(() => null),
+        api.listDesempenhoAtleta().catch(() => null),
+        api.listDesempenhoEquipeFantasy().catch(() => null),
+        api.listRegraPontuacaoLiga ? api.listRegraPontuacaoLiga().catch(() => null) : Promise.resolve(null),
+        api.listEquipeLiga().catch(() => null)
+      ])
+
+      if (usuarios && Array.isArray(usuarios)) mockUsuarios = usuarios
+      if (campeonatos && Array.isArray(campeonatos)) mockCampeonatos = campeonatos
+      if (ligas && Array.isArray(ligas)) mockLigas = ligas
+      if (clubes && Array.isArray(clubes)) mockClubes = clubes
+      if (atletas && Array.isArray(atletas)) mockAtletas = atletas
+      if (rodadas && Array.isArray(rodadas)) mockRodadas = rodadas
+      if (campeonatoRodadas && Array.isArray(campeonatoRodadas)) mockCampeonatoRodadas = campeonatoRodadas
+      if (equipesFantasy && Array.isArray(equipesFantasy)) mockEquipesFantasy = equipesFantasy
+      if (desempenhoAtleta && Array.isArray(desempenhoAtleta)) mockDesempenhoAtleta = desempenhoAtleta
+      if (desempenhoEquipeFantasy && Array.isArray(desempenhoEquipeFantasy)) mockDesempenhoEquipeFantasy = desempenhoEquipeFantasy
+      if (regras && Array.isArray(regras)) mockRegraPontuacaoLiga = regras
+      if (equipeLiga && Array.isArray(equipeLiga)) mockEquipeLiga = equipeLiga
+    } catch (e) {
+      // swallow, manterá os dados de mock
+      console.warn('Não foi possível carregar dados da API, usando mocks locais', e)
+    }
+  })()
+}
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, Upload, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { mockCampeonatos } from '@/mocks/database'
 import { acoesPontuacao } from '@/lib/jogo-config'
+import api from '@/lib/api'
+
 export default function CriarLigaPage() {
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(false)
+  const [campeonatos, setCampeonatos] = useState<any[]>([])
   const [formData, setFormData] = useState({
     nome: '',
     descricao: '',
@@ -23,6 +25,18 @@ export default function CriarLigaPage() {
   })
   const [regrasPontuacao, setRegrasPontuacao] = useState<{[key: string]: number}>({})
   const [selectedAcoes, setSelectedAcoes] = useState<string[]>([])
+
+  useEffect(() => {
+    const loadCampeonatos = async () => {
+      try {
+        const data = await api.listCampeonatos()
+        setCampeonatos(data)
+      } catch (error) {
+        console.error('Erro ao carregar campeonatos', error)
+      }
+    }
+    loadCampeonatos()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -113,7 +127,7 @@ export default function CriarLigaPage() {
                     <SelectValue placeholder="Selecione um campeonato" />
                   </SelectTrigger>
                   <SelectContent>
-                    {mockCampeonatos.map((camp) => (
+                    {campeonatos.map((camp) => (
                       <SelectItem key={camp.id} value={camp.id.toString()}>
                         {camp.nome}
                       </SelectItem>

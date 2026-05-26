@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
-import { mockEquipesFantasy, mockLigas, mockCampeonatos, mockEquipeLiga, mockAtletas, mockClubes, mockEscalacao, mockRodadas, mockCampeonatoRodadas, mockDesempenhoAtleta, mockDesempenhoEquipeFantasy } from '@/mocks/database'
+import api from '@/lib/api'
 import type { Atleta } from '@/types'
 import { Toaster } from '@/components/ui/toaster'
 import { X } from 'lucide-react'
@@ -44,31 +44,69 @@ export default function EscalacaoPage() {
   const { ligaId } = useParams()
   const ligaIdNumber = Number(ligaId)
 
-  // Buscar dados dinamicamente
-  const liga = mockLigas.find(l => l.id === ligaIdNumber)
-  const campeonato = liga ? mockCampeonatos.find(c => c.id === liga.idCampeonato) : null
-  const equipeFantasy = mockEquipesFantasy.find(equipe => equipe.idUsuario === user?.id)
-  const equipeLiga = liga && equipeFantasy ? mockEquipeLiga.find(el => el.idLiga === liga.id && el.idEquipeFantasy === equipeFantasy.id) : null
+  // Buscar dados dinamicamente (API ou mocks)
+  const [apiAtletas, setApiAtletas] = useState<any[] | null>(null)
+  const [apiClubes, setApiClubes] = useState<any[] | null>(null)
+  const [apiEscalacao, setApiEscalacao] = useState<any[] | null>(null)
+  const [apiRodadas, setApiRodadas] = useState<any[] | null>(null)
+  const [apiCampeonatoRodadas, setApiCampeonatoRodadas] = useState<any[] | null>(null)
+  const [apiDesempenhoAtleta, setApiDesempenhoAtleta] = useState<any[] | null>(null)
+  const [apiDesempenhoEquipeFantasy, setApiDesempenhoEquipeFantasy] = useState<any[] | null>(null)
+  const [apiEquipesFantasy, setApiEquipesFantasy] = useState<any[] | null>(null)
+  const [apiLigas, setApiLigas] = useState<any[] | null>(null)
+  const [apiEquipeLiga, setApiEquipeLiga] = useState<any[] | null>(null)
+
+  useEffect(() => {
+    const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+    if (useMocks) return
+
+    api.listAtletas().then((d) => setApiAtletas(d)).catch(() => null)
+    api.listClubes().then((d) => setApiClubes(d)).catch(() => null)
+    api.listEscalacoes().then((d) => setApiEscalacao(d)).catch(() => null)
+    api.listRodadas().then((d) => setApiRodadas(d)).catch(() => null)
+    api.listCampeonatoRodadas().then((d) => setApiCampeonatoRodadas(d)).catch(() => null)
+    api.listDesempenhoAtleta().then((d) => setApiDesempenhoAtleta(d)).catch(() => null)
+    api.listDesempenhoEquipeFantasy().then((d) => setApiDesempenhoEquipeFantasy(d)).catch(() => null)
+    api.listEquipesFantasy().then((d) => setApiEquipesFantasy(d)).catch(() => null)
+    api.listLigas().then((d) => setApiLigas(d)).catch(() => null)
+    api.listEquipeLiga().then((d) => setApiEquipeLiga(d)).catch(() => null)
+  }, [])
+
+  const atletasSource = apiAtletas ?? mockAtletas
+  const clubesSource = apiClubes ?? mockClubes
+  const escalacoesSource = apiEscalacao ?? mockEscalacao
+  const rodadasSource = apiRodadas ?? mockRodadas
+  const campeonatoRodadasSource = apiCampeonatoRodadas ?? mockCampeonatoRodadas
+  const desempenhoAtletaSource = apiDesempenhoAtleta ?? mockDesempenhoAtleta
+  const desempenhoEquipeFantasySource = apiDesempenhoEquipeFantasy ?? mockDesempenhoEquipeFantasy
+  const equipesFantasySource = apiEquipesFantasy ?? mockEquipesFantasy
+  const ligasSource = apiLigas ?? mockLigas
+  const equipeLigaSource = apiEquipeLiga ?? mockEquipeLiga
+
+  const liga = ligasSource.find(l => l.id === ligaIdNumber)
+  const campeonato = liga ? (mockCampeonatos.find(c => c.id === liga.idCampeonato) ?? null) : null
+  const equipeFantasy = equipesFantasySource.find(equipe => equipe.idUsuario === user?.id)
+  const equipeLiga = liga && equipeFantasy ? equipeLigaSource.find(el => el.idLiga === liga.id && el.idEquipeFantasy === equipeFantasy.id) : null
   
   // Verificar a rodada atual do campeonato via relacionamento campeonatoRodada
-  const rodasLiga = liga ? mockRodadas.filter(r => r.idCampeonato === liga.idCampeonato) : []
-  const campeonatoRodada = campeonato ? mockCampeonatoRodadas.find(cr => cr.idCampeonato === campeonato.id) : null
+  const rodasLiga = liga ? rodadasSource.filter(r => r.idCampeonato === liga.idCampeonato) : []
+  const campeonatoRodada = campeonato ? campeonatoRodadasSource.find(cr => cr.idCampeonato === campeonato.id) : null
   const rodadaAtual = campeonatoRodada
-    ? mockRodadas.find(r => r.id === campeonatoRodada.idRodada) ?? null
+    ? rodadasSource.find(r => r.id === campeonatoRodada.idRodada) ?? null
     : rodasLiga.length > 0 ? rodasLiga[rodasLiga.length - 1] : null
   const mercadoFechado = rodadaAtual?.status !== 'ABERTO'
   
   // Carregar escalações existentes para esta rodada e equipe
   const escalacoesExistentes = equipeLiga && rodadaAtual
-    ? mockEscalacao.filter(e => e.idRodada === rodadaAtual.id && e.idEquipeLiga === equipeLiga.id)
+    ? escalacoesSource.filter(e => e.idRodada === rodadaAtual.id && e.idEquipeLiga === equipeLiga.id)
     : []
 
   const equipePontuacaoTotal = equipeFantasy && liga
-    ? calcularPontuacaoEquipe(equipeFantasy.id, liga.id, mockDesempenhoEquipeFantasy, rodadaAtual?.id)
+    ? calcularPontuacaoEquipe(equipeFantasy.id, liga.id, desempenhoEquipeFantasySource, rodadaAtual?.id)
     : null
 
   // Preparar mercado com atletas do database
-  const mercado = mockAtletas
+  const mercado = atletasSource
     .map(atleta => {
       const clube = mockClubes.find(c => c.id === atleta.idClube)
       const desempenho = rodadaAtual

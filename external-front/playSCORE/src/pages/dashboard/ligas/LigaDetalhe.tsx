@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Trophy, Medal } from 'lucide-react'
 
@@ -12,8 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-import { mockLigas, mockCampeonatos, mockEquipeLiga, mockEquipesFantasy, mockUsuarios, mockRegraPontuacaoLiga, mockDesempenhoEquipeFantasy, mockDesempenhoAtleta, mockRodadas, mockClubes, mockAtletas } from '@/mocks/database'
 import { useAuth } from '@/hooks/use-auth'
+import api from '@/lib/api'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 
@@ -28,75 +28,50 @@ export default function LigaDetalhe() {
   const [joinCode, setJoinCode] = useState('')
   const [joinError, setJoinError] = useState('')
   const [joined, setJoined] = useState(false)
+  
+  const [liga, setLiga] = useState<any>(null)
+  const [campeonatos, setCampeonatos] = useState<any[]>([])
+  const [equipesLiga, setEquipesLiga] = useState<any[]>([])
+  const [rodadas, setRodadas] = useState<any[]>([])
+  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
+  const [desempenhoEquipeFantasy, setDesempenhoEquipeFantasy] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const ligaBase = mockLigas.find(l => l.id === Number(id)) as any
-  const liga = {
-    ...ligaBase,
-    descricao: ligaBase?.descricao,
-    campeonatoNome: mockCampeonatos.find(c => c.id === ligaBase?.idCampeonato)?.nome ?? ''
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ligasData, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData] = await Promise.all([
+          api.listLigas(),
+          api.listCampeonatos(),
+          api.listEquipeLiga(),
+          api.listEquipesFantasy(),
+          api.listDesempenhoEquipeFantasy(),
+          api.listRodadas(),
+        ])
+
+        const currentLiga = ligasData.find((l: any) => l.id === Number(id))
+        setLiga(currentLiga)
+        setCampeonatos(campeonatosData)
+        setEquipesLiga(equipeLigaData.filter((el: any) => el.idLiga === Number(id)))
+        setEquipesFantasy(equipesFantasyData)
+        setDesempenhoEquipeFantasy(desempenhoData)
+        setRodadas(rodadasData)
+      } catch (error) {
+        console.error('Erro ao carregar dados da liga', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [id])
+
+  if (loading || !liga) {
+    return <div className="flex items-center justify-center py-12">Carregando...</div>
   }
 
-  if (!liga) {
-    return <div className="p-6">Liga não encontrada</div>
-  }
-
-  const equipesLiga = mockEquipeLiga.filter(el => el.idLiga === liga.id)
-  const rodasLiga = mockRodadas.filter(r => r.idCampeonato === liga.idCampeonato)
+  const rodasLiga = rodadas.filter((r: any) => r.idCampeonato === liga.idCampeonato)
   const rodadaAtual = rodasLiga.length > 0 ? rodasLiga[rodasLiga.length - 1].numero : 1
-
-  const participantes = equipesLiga.map(equipeLiga => {
-    const equipeFantasy = mockEquipesFantasy.find(e => e.id === equipeLiga.idEquipeFantasy)!
-    const usuario = mockUsuarios.find(u => u.id === equipeFantasy.idUsuario)!
-    const desempenhos = mockDesempenhoEquipeFantasy.filter(d => d.idEquipeFantasy === equipeLiga.idEquipeFantasy && d.idLiga === liga.id)
-
-    const pontuacoesPorRodada: { [key: number]: number } = {}
-    desempenhos.forEach(d => {
-      pontuacoesPorRodada[d.idRodada] = (d.pontuacaoRodada || 0)
-    })
-
-    return {
-      id: equipeLiga.id,
-      nomeEquipe: equipeFantasy.nome,
-      logoEquipe: equipeFantasy.logo,
-      nomeUsuario: usuario.nome,
-      idEquipeFantasy: equipeFantasy.id,
-      pontuacoesPorRodada,
-      pontuacaoTotal: equipeLiga.pontuacaoTotal || 0,
-      patrimonio: equipeLiga.patrimonio
-    }
-  })
-  const isOwner = liga.idUsuarioCriador === user?.id
-  const userEquipeFantasy = user ? mockEquipesFantasy.find((equipe) => equipe.idUsuario === user.id) : undefined
-  const isMember = Boolean(
-    userEquipeFantasy &&
-      mockEquipeLiga.some(
-        (entry) => entry.idLiga === liga.id && entry.idEquipeFantasy === userEquipeFantasy.id
-      )
-  )
-  const hasAccess = isOwner || isMember || joined
-
-  const handleJoinLiga = () => {
-    if (joinCode.trim() === liga.codigoAcesso) {
-      setJoined(true)
-      setJoinError('')
-      setIsJoining(false)
-      setJoinCode('')
-      return
-    }
-
-    setJoinError('Código de acesso inválido')
-  }
-
-  // Funções de cálculo
-  const getPontuacaoRodada = (p: any, rodada: number) => p.pontuacoesPorRodada[rodada] || 0
-  const getPontuacaoTotal = (p: any) => p.pontuacaoTotal
-
-  const participantesRanqueados = tipoRanking === 'geral'
-    ? [...participantes].sort((a, b) => getPontuacaoTotal(b) - getPontuacaoTotal(a))
-    : [...participantes].sort((a, b) =>
-        getPontuacaoRodada(b, rodadaSelecionada === 'todas' ? rodadaAtual : Number(rodadaSelecionada)) -
-        getPontuacaoRodada(a, rodadaSelecionada === 'todas' ? rodadaAtual : Number(rodadaSelecionada))
-      )
 
   const destaqueRodada = participantesRanqueados[0]
   const usuario = participantes.find(p => p.idEquipeFantasy === mockEquipesFantasy.find(e => e.idUsuario === user?.id)?.id)

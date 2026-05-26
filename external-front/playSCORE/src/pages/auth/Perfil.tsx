@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Pencil, Save, X, ArrowLeft, Upload } from 'lucide-react'
 
@@ -11,11 +11,10 @@ import { Label } from '@/components/ui/label'
 
 import { useToast } from '@/hooks/use-toast'
 import { Toaster } from '@/components/ui/toaster'
-
+import api from '@/lib/api'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAuth } from '@/hooks/use-auth'
-import { mockEquipesFantasy, mockEquipeLiga, mockLigas } from '@/mocks/database'
 
 export default function Perfil() {
   const navigate = useNavigate()
@@ -23,13 +22,37 @@ export default function Perfil() {
 
   const { toast } = useToast()
 
+  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
+  const [equipeLiga, setEquipeLiga] = useState<any[]>([])
+  const [ligas, setLigas] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [editando, setEditando] = useState(false)
 
-  if (!user) {
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [equipes, equipeLigaData, ligasData] = await Promise.all([
+          api.listEquipesFantasy(),
+          api.listEquipeLiga(),
+          api.listLigas(),
+        ])
+        setEquipesFantasy(equipes)
+        setEquipeLiga(equipeLigaData)
+        setLigas(ligasData)
+      } catch (error) {
+        console.error('Erro ao carregar perfil', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  if (!user || isLoading) {
     return <div className="p-6">Carregando usuário...</div>
   }
 
-  const equipeFantasy = mockEquipesFantasy.find(
+  const equipeFantasy = equipesFantasy.find(
     (e) => e.idUsuario === user.id
   )
 
@@ -39,7 +62,7 @@ export default function Perfil() {
     logo: equipeFantasy?.logo ?? '',
   })
 
-  const equipesNaLiga = mockEquipeLiga.filter(
+  const equipesNaLiga = equipeLiga.filter(
     (e) => e.idEquipeFantasy === equipeFantasy?.id
   )
 
@@ -58,11 +81,11 @@ export default function Perfil() {
         (b.pontuacaoTotal || 0) - (a.pontuacaoTotal || 0)
     )[0]
 
-    const ligaInfo = mockLigas.find(
+    const ligaInfo = ligas.find(
       (l) => l.id === melhor.idLiga
     )
 
-    const participantesDaLiga = mockEquipeLiga
+    const participantesDaLiga = equipeLiga
       .filter((el) => el.idLiga === melhor.idLiga)
       .sort(
         (a, b) =>

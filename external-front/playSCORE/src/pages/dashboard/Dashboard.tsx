@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Trophy, TrendingUp, Plus, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,33 +8,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { StatsCard } from '@/components/playscore/stats-card'
 import { LeagueCard } from '@/components/playscore/league-card'
 import { RoundSummaryCard } from '@/components/playscore/round-summary-card'
-import { mockCampeonatos, mockEquipeLiga, mockLigas, mockDesempenhoEquipeFantasy, mockUsuarios } from '@/mocks/database'
 import { useAuth } from '@/hooks/use-auth'
-
-const ligasComExtras = mockLigas.map((liga) => ({
-  ...liga,
-  participantes: mockEquipeLiga.filter((entry) => entry.idLiga === liga.id).length,
-  campeonatoNome: mockCampeonatos.find((camp) => camp.id === liga.idCampeonato)?.nome ?? '',
-}))
-
-const minhasLigas = ligasComExtras.length
-const pontuacaoTotal = mockEquipeLiga.reduce((sum, entry) => sum + entry.pontuacaoTotal, 0)
-const equipeDestaque = [...mockEquipeLiga].sort((a, b) => b.pontuacaoTotal - a.pontuacaoTotal)[0]
-const resumoRodada = {
-  nomeLiga: ligasComExtras.find((liga) => liga.id === equipeDestaque?.idLiga)?.nome ?? 'Liga em destaque',
-  logo: undefined,
-  pontuacaoRodada:
-    equipeDestaque
-      ? mockDesempenhoEquipeFantasy.find(
-          (entry) => entry.idLiga === equipeDestaque.idLiga && entry.idEquipeFantasy === equipeDestaque.idEquipeFantasy,
-        )?.pontuacaoRodada ?? equipeDestaque.pontuacaoTotal
-      : 0,
-  pontuacaoTotal: equipeDestaque?.pontuacaoTotal ?? 0,
-  colocacao: 1,
-}
-
-// export ligas and resumo for other components if needed
-export { ligasComExtras as dashboardLigas, resumoRodada as dashboardResumo }
+import api from '@/lib/api'
 
 const mockNoticias = [
   {
@@ -52,7 +28,54 @@ const mockNoticias = [
 
 export default function DashboardPage() {
   const { user } = useAuth()
-  const dadosUsuario = mockUsuarios.find(u => u.id === user.id);
+  const [ligas, setLigas] = useState<any[]>([])
+  const [campeonatos, setCampeonatos] = useState<any[]>([])
+  const [equipeLiga, setEquipeLiga] = useState<any[]>([])
+  const [desempenhoEquipeFantasy, setDesempenhoEquipeFantasy] = useState<any[]>([])
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ligasData, campeonatosData, equipeLigaData, desempenhoData] = await Promise.all([
+          api.listLigas(),
+          api.listCampeonatos(),
+          api.listEquipeLiga(),
+          api.listDesempenhoEquipeFantasy(),
+        ])
+
+        setLigas(ligasData)
+        setCampeonatos(campeonatosData)
+        setEquipeLiga(equipeLigaData)
+        setDesempenhoEquipeFantasy(desempenhoData)
+      } catch (error) {
+        console.error('Erro ao carregar dados do dashboard', error)
+      }
+    }
+
+    loadData()
+  }, [])
+
+  const ligasComExtras = ligas.map((liga) => ({
+    ...liga,
+    participantes: equipeLiga.filter((entry) => entry.idLiga === liga.id).length,
+    campeonatoNome: campeonatos.find((camp) => camp.id === liga.idCampeonato)?.nome ?? '',
+  }))
+
+  const minhasLigas = ligasComExtras.filter((liga) => liga.idUsuarioCriador === user?.id).length
+  const pontuacaoTotal = equipeLiga.reduce((sum, entry) => sum + (entry.pontuacaoTotal || 0), 0)
+  const equipeDestaque = [...equipeLiga].sort((a, b) => (b.pontuacaoTotal || 0) - (a.pontuacaoTotal || 0))[0]
+  const resumoRodada = {
+    nomeLiga: ligasComExtras.find((liga) => liga.id === equipeDestaque?.idLiga)?.nome ?? 'Liga em destaque',
+    logo: undefined,
+    pontuacaoRodada:
+      equipeDestaque
+        ? desempenhoEquipeFantasy.find(
+            (entry) => entry.idLiga === equipeDestaque.idLiga && entry.idEquipeFantasy === equipeDestaque.idEquipeFantasy,
+          )?.pontuacaoRodada ?? equipeDestaque.pontuacaoTotal
+        : 0,
+    pontuacaoTotal: equipeDestaque?.pontuacaoTotal ?? 0,
+    colocacao: 1,
+  }
 
   return (
     <div className="space-y-6">
@@ -60,7 +83,7 @@ export default function DashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-display font-bold">
-            Bem-vindo, <span className="text-primary">{dadosUsuario?.nome}!</span>
+            Bem-vindo, <span className="text-primary">{user?.nome || 'Usuário'}!</span>
           </h1>
           <p className="text-muted-foreground">
             Acompanhe suas ligas e escale seu time para a próxima rodada.

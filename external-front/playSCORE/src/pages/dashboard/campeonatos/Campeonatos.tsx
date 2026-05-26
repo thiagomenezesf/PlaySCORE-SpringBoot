@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Search, Plus, Shield } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { ChampionshipCard } from '@/components/playscore/championship-card'
 import { useAuth } from '@/hooks/use-auth'
-import { mockCampeonatos } from '@/mocks/database'
+import api from '@/lib/api'
 import type { Campeonato } from '@/types'
 
 export default function CampeonatosPage() {
@@ -20,8 +20,15 @@ export default function CampeonatosPage() {
     )
   }
 
-  const meusCampeonatos = mockCampeonatos.filter(c => user?.id != null && c.idUsuario === user.id) as Campeonato[]
-  const todosCampeonatos = mockCampeonatos as Campeonato[]
+  const [todosCampeonatos, setTodosCampeonatos] = useState<Campeonato[]>([])
+
+  useEffect(() => {
+    api.listCampeonatos()
+      .then((data: Campeonato[]) => setTodosCampeonatos(data))
+      .catch(() => setTodosCampeonatos([]))
+  }, [])
+
+  const meusCampeonatos = todosCampeonatos.filter(c => user?.id != null && c.idUsuario === user.id) as Campeonato[]
 
   return (
     <div className="space-y-6">

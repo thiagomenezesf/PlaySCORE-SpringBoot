@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Shield, Settings, Copy, Trophy, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,8 +11,8 @@ import { FieldGroup, Field, FieldLabel } from '@/components/ui/field'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { mockCampeonatos, mockEquipeLiga, mockEquipesFantasy, mockLigas, mockRegraPontuacaoLiga } from '@/mocks/database'
 import { useAuth } from '@/hooks/use-auth'
+import api from '@/lib/api'
 import type { Campeonato, EquipeFantasy, Liga } from '@/types'
 import { acoesPontuacao } from '@/lib/jogo-config'
 
@@ -20,41 +20,42 @@ export default function GerenciarLigaPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuth()
-  const liga = (mockLigas as Liga[]).find((item) => item.id === Number(id))
+  const [liga, setLiga] = useState<Liga | null>(null)
+  const [campeonatos, setCampeonatos] = useState<any[]>([])
+  const [equipeLiga, setEquipeLiga] = useState<any[]>([])
+  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
+  const [regrasPontuacao, setRegrasPontuacao] = useState<any[]>([])
 
-  const [copied, setCopied] = useState(false)
-  const [activeTab, setActiveTab] = useState('info')
-  const [formData, setFormData] = useState(() => ({
-    nome: liga?.nome ?? '',
-    descricao: (liga as Liga | undefined)?.descricao ?? '',
-    idCampeonato: liga?.idCampeonato.toString() ?? '',
-    maxParticipantes: (liga as Liga | undefined)?.maxParticipantes?.toString() ?? '20',
-    codigoAcesso: (liga as Liga | undefined)?.codigoAcesso.toString() ?? ''
-  }))
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [ligasData, campeonatosData, equipeLigaData, equipesFantasyData, regraspont] = await Promise.all([
+          api.listLigas(),
+          api.listCampeonatos(),
+          api.listEquipeLiga(),
+          api.listEquipesFantasy(),
+          api.listRegraPontuacaoLiga(),
+        ])
 
-  const regrasIniciais: { [key: string]: number } = {}
-
-  if (liga) {
-    mockRegraPontuacaoLiga.forEach((r) => {
-      if (r.idLiga === liga.id) {
-        regrasIniciais[r.acao] = r.valor
+        const currentLiga = ligasData.find((l: any) => l.id === Number(id))
+        setLiga(currentLiga)
+        setCampeonatos(campeonatosData)
+        setEquipeLiga(equipeLigaData)
+        setEquipesFantasy(equipesFantasyData)
+        setRegrasPontuacao(regraspont)
+      } catch (error) {
+        console.error('Erro ao carregar dados da liga', error)
       }
-    })
-  }
+    }
 
-  const [regrasPontuacao, setRegrasPontuacao] = useState<{ [key: string]: number }>(
-    regrasIniciais
-  )
-
-  const [selectedAcoes, setSelectedAcoes] = useState<string[]>(
-    Object.keys(regrasIniciais)
-  )
+    loadData()
+  }, [id])
 
   if (!liga) {
-    return <div className="p-6">Liga não encontrada</div>
+    return <div className="flex items-center justify-center py-12">Carregando...</div>
   }
 
-  const campeonato = (mockCampeonatos as Campeonato[]).find(
+  const campeonato = (campeonatos as Campeonato[]).find(
     (camp) => camp.id === liga.idCampeonato
   )
 

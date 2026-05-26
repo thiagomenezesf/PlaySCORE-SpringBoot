@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -7,7 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { mockAtletas, mockClubes, mockCampeonatos } from '@/mocks/database'
+import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
 import type { Atleta, Campeonato, Clube } from '@/types'
 import { tipoJogoInfos } from '@/lib/jogo-config'
@@ -23,15 +24,44 @@ export default function CampeonatoDetalhePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const campeonato = (mockCampeonatos as Campeonato[]).find((camp) => camp.id === Number(id))
+  const [campeonatos, setCampeonatos] = useState<Campeonato[]>([])
+  const [clubes, setClubes] = useState<Clube[]>([])
+  const [atletas, setAtletas] = useState<Atleta[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [campeonatosData, clubesData, atletasData] = await Promise.all([
+          api.listCampeonatos(),
+          api.listClubes(),
+          api.listAtletas(),
+        ])
+        setCampeonatos(campeonatosData)
+        setClubes(clubesData)
+        setAtletas(atletasData)
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do campeonato', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  if (isLoading) {
+    return <div className="p-6">Carregando campeonato...</div>
+  }
+
+  const campeonato = campeonatos.find((camp) => camp.id === Number(id))
 
   if (!campeonato) {
     return <div className="p-6">Campeonato não encontrado</div>
   }
 
   const isOwner = campeonato.idUsuario === user?.id
-  const clubes = (mockClubes as Clube[]).filter((clube) => clube.idCampeonato === campeonato.id)
-  const atletas = (mockAtletas as Atleta[]).filter((atleta) => clubes.some((clube) => clube.id === atleta.idClube))
+  const clubesDoCampeonato = clubes.filter((clube) => clube.idCampeonato === campeonato.id)
+  const atletasDoCampeonato = atletas.filter((atleta) => clubesDoCampeonato.some((clube) => clube.id === atleta.idClube))
   const tipoInfo = tipoJogoInfos[campeonato.tipoJogo]
   const statusAtual = campeonato.status ?? 'ativo'
 
@@ -85,7 +115,7 @@ export default function CampeonatoDetalhePage() {
             <CardTitle className="text-sm">Clubes</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{clubes.length}</p>
+            <p className="text-2xl font-bold">{clubesDoCampeonato.length}</p>
           </CardContent>
         </Card>
 
@@ -94,7 +124,7 @@ export default function CampeonatoDetalhePage() {
             <CardTitle className="text-sm">Atletas</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">{atletas.length}</p>
+            <p className="text-2xl font-bold">{atletasDoCampeonato.length}</p>
           </CardContent>
         </Card>
       </div>
@@ -113,8 +143,8 @@ export default function CampeonatoDetalhePage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {clubes.map((clube) => {
-                const atletaCount = atletas.filter((atleta) => atleta.idClube === clube.id).length
+              {clubesDoCampeonato.map((clube) => {
+                const atletaCount = atletasDoCampeonato.filter((atleta) => atleta.idClube === clube.id).length
                 return (
                   <TableRow key={clube.id}>
                     <TableCell>

@@ -1,8 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import { mockUsuarios } from '@/mocks/database'
-import type { ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import api from '@/lib/api'
 import type { Usuario } from '@/types'
 
 interface AuthContextValue {
@@ -23,18 +22,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!storedUserId) return
 
     const userId = Number(storedUserId)
-    const foundUser = mockUsuarios.find((u) => u.id === userId)
-    if (foundUser) {
-      setUser(foundUser)
-    }
+    api.getUsuario(userId)
+      .then((u) => setUser(u))
+      .catch(() => {
+        localStorage.removeItem(STORAGE_KEY)
+        setUser(null)
+      })
   }, [])
 
   const loginAs = (userId: number) => {
-    const foundUser = mockUsuarios.find((u) => u.id === userId)
-    if (!foundUser) return
-
-    localStorage.setItem(STORAGE_KEY, String(userId))
-    setUser(foundUser)
+    api.getUsuario(userId)
+      .then((u) => {
+        localStorage.setItem(STORAGE_KEY, String(userId))
+        setUser(u)
+      })
+      .catch(() => {
+        localStorage.removeItem(STORAGE_KEY)
+        setUser(null)
+      })
   }
 
   const logout = () => {
