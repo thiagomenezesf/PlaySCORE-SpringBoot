@@ -12,7 +12,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { tipoJogoOptions, posicoesPorTipoJogo, posicaoLabels } from '@/lib/jogo-config'
+import { tipoJogoInfos, tipoJogoOptions, posicoesPorTipoJogo, posicaoLabels } from '@/lib/jogo-config'
+import { useAuth } from '@/hooks/use-auth'
+import api from '@/lib/api'
+import type { PosicaoAtleta } from '@/types'
 
 interface Clube {
   id: string
@@ -23,7 +26,7 @@ interface Clube {
 interface Atleta {
   id: string
   nome: string
-  posicao: string
+  posicao: PosicaoAtleta
   foto?: string
   precoInicial: number
   clubeId: string
@@ -41,7 +44,13 @@ export default function CriarCampeonatoPage() {
   const [clubes, setClubes] = useState<Clube[]>([])
   const [atletas, setAtletas] = useState<Atleta[]>([])
   const [novoClube, setNovoClube] = useState({ nome: '', logo: '' })
-  const [novoAtleta, setNovoAtleta] = useState({
+  const [novoAtleta, setNovoAtleta] = useState<{
+    nome: string
+    posicao: PosicaoAtleta | ''
+    foto: string
+    precoInicial: number
+    clubeId: string
+  }>({
     nome: '',
     posicao: '',
     foto: '',
@@ -51,15 +60,56 @@ export default function CriarCampeonatoPage() {
 
   const posicaoOptions = posicoesPorTipoJogo[formData.tipoJogo as keyof typeof posicoesPorTipoJogo]
 
+  const { user } = useAuth()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!user?.id) return
+
     setIsLoading(true)
 
-    // TODO: Integrar com Spring Boot via Axios
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      const campeonatoBody = {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        tipoJogo: formData.tipoJogo,
+        idUsuario: user.id,
+        status: 'ativo',
+        numeroDeJogadoresJogando: tipoJogoInfos[formData.tipoJogo as keyof typeof tipoJogoInfos].jogadores,
+      }
 
-    // Redirecionar para a pagina de gerenciamento do campeonato
-    navigate('/campeonatos')
+      const savedCampeonato = await api.createCampeonato(campeonatoBody)
+
+      const createdClubes = await Promise.all(
+        clubes.map((clube) => api.createClube({
+          nome: clube.nome,
+          logo: clube.logo,
+          idCampeonato: savedCampeonato.id,
+        }))
+      )
+
+      const clubeIdMap = new Map<string, number>()
+      createdClubes.forEach((createdClube, index) => {
+        clubeIdMap.set(clubes[index].id, createdClube.id)
+      })
+
+      await Promise.all(
+        atletas.map((atleta) => api.createAtleta({
+          nome: atleta.nome,
+          foto: atleta.foto,
+          posicao: atleta.posicao,
+          precoInicial: atleta.precoInicial,
+          idClube: clubeIdMap.get(atleta.clubeId),
+        }))
+      )
+
+      navigate('/campeonatos')
+    } catch (error) {
+      console.error('Erro ao criar campeonato:', error)
+      alert('Não foi possível criar o campeonato. Verifique os dados e tente novamente.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleAddClube = () => {
@@ -85,7 +135,7 @@ export default function CriarCampeonatoPage() {
       const atleta: Atleta = {
         id: Date.now().toString(),
         nome: novoAtleta.nome,
-        posicao: novoAtleta.posicao,
+        posicao: novoAtleta.posicao as PosicaoAtleta,
         foto: novoAtleta.foto || undefined,
         precoInicial: novoAtleta.precoInicial,
         clubeId: novoAtleta.clubeId
@@ -322,7 +372,7 @@ export default function CriarCampeonatoPage() {
                     <FieldLabel htmlFor="atletaPosicao">Posição *</FieldLabel>
                     <Select
                       value={novoAtleta.posicao}
-                      onValueChange={(value) => setNovoAtleta({ ...novoAtleta, posicao: value })}
+                      onValueChange={(value) => setNovoAtleta({ ...novoAtleta, posicao: value as PosicaoAtleta })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a posição" />

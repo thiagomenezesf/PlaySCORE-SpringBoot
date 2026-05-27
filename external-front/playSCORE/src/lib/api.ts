@@ -17,8 +17,15 @@ async function request(path: string, options: RequestInit = {}) {
 
 export const api = {
   // Campeonatos
-  listCampeonatos: () => request('/campeonatos'),
-  getCampeonato: (id: number) => request(`/campeonatos/${id}`),
+  listCampeonatos: async () => {
+    const data = await request('/campeonatos');
+    return Array.isArray(data) ? data.map((c: any) => ({ ...c, idUsuario: c.criador?.id ?? c.idUsuario })) : [];
+  },
+  getCampeonato: async (id: number) => {
+    const c = await request(`/campeonatos/${id}`);
+    if (!c) return c;
+    return { ...c, idUsuario: c.criador?.id ?? c.idUsuario };
+  },
   createCampeonato: (body: any) => request('/campeonatos', { method: 'POST', body: JSON.stringify(body) }),
 
   // Escalações
