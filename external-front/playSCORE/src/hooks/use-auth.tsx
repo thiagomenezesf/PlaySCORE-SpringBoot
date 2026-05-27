@@ -7,7 +7,8 @@ import type { Usuario } from '@/types'
 interface AuthContextValue {
   user: Usuario | null
   isLoggedIn: boolean
-  loginAs: (userId: number) => void
+  isLoading: boolean // Adicionado aqui
+  loginAs: (userId: number) => Promise<void> // Mudou para Promise para podermos usar await
   logout: () => void
 }
 
@@ -16,10 +17,16 @@ const STORAGE_KEY = 'playscoreUserId'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Usuario | null>(null)
+  const [isLoading, setIsLoading] = useState(true) // Começa como true
 
+  // Carrega o usuário do localStorage ao abrir o app
   useEffect(() => {
     const storedUserId = localStorage.getItem(STORAGE_KEY)
-    if (!storedUserId) return
+    
+    if (!storedUserId) {
+      setIsLoading(false) // Não tem usuário guardado, termina o loading
+      return
+    }
 
     const userId = Number(storedUserId)
     api.getUsuario(userId)
@@ -28,18 +35,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(STORAGE_KEY)
         setUser(null)
       })
+      .finally(() => {
+        setIsLoading(false) // Termina o loading dando certo ou errado
+      })
   }, [])
 
-  const loginAs = (userId: number) => {
-    api.getUsuario(userId)
-      .then((u) => {
-        localStorage.setItem(STORAGE_KEY, String(userId))
-        setUser(u)
-      })
-      .catch(() => {
-        localStorage.removeItem(STORAGE_KEY)
-        setUser(null)
-      })
+  // Atualizado para async/await para o handleSubmit poder aguardar o término
+  const loginAs = async (userId: number) => {
+    setIsLoading(true) // Ativa o loading ao tentar logar
+    try {
+      const u = await api.getUsuario(userId)
+      localStorage.setItem(STORAGE_KEY, String(userId))
+      setUser(u)
+    } catch (error) {
+      localStorage.removeItem(STORAGE_KEY)
+      setUser(null)
+      throw error // Repassa o erro para o handleSubmit tratar se necessário
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const logout = () => {
@@ -51,10 +65,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isLoggedIn: Boolean(user),
+      isLoading, // Adicionado no value do contexto
       loginAs,
       logout,
     }),
-    [user]
+    [user, isLoading] // Adicionado isLoading nas dependências
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

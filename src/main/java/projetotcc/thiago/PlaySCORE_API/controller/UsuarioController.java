@@ -3,6 +3,7 @@ package projetotcc.thiago.PlaySCORE_API.controller;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import projetotcc.thiago.PlaySCORE_API.dto.LoginRequest;
 import projetotcc.thiago.PlaySCORE_API.dto.UsuarioRequest;
 import projetotcc.thiago.PlaySCORE_API.model.Usuario;
 import projetotcc.thiago.PlaySCORE_API.service.UsuarioService;
@@ -29,6 +30,11 @@ public class UsuarioController {
     @PostMapping
     public Usuario salvar(@Valid @RequestBody UsuarioRequest request) {
         return usuarioService.salvar(request);
+    }
+
+    @PostMapping("/login")
+    public Usuario login(@Valid @RequestBody LoginRequest request) {
+        return usuarioService.autenticar(request.getEmail(), request.getSenha());
     }
 
     @PutMapping("/{id}")

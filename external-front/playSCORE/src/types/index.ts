@@ -10,6 +10,8 @@ export interface Usuario {
   senha?: string
   avatar?: string
   createdAt?: Date
+  role?: string
+  permissions?: string[]
 }
 
 export type TipoJogo =

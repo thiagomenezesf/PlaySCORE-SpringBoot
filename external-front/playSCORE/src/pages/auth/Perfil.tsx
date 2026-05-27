@@ -18,7 +18,7 @@ import { useAuth } from '@/hooks/use-auth'
 
 export default function Perfil() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, loginAs } = useAuth()
 
   const { toast } = useToast()
 
@@ -27,7 +27,12 @@ export default function Perfil() {
   const [ligas, setLigas] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editando, setEditando] = useState(false)
-
+  const [editData, setEditData] = useState({
+    nomeEquipe: '',
+    nomeUsuario: '',
+    logo: '',
+  })
+  
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -48,19 +53,26 @@ export default function Perfil() {
     loadData()
   }, [])
 
+  const equipeFantasy = equipesFantasy.find(
+    (e) =>
+      e?.idUsuario === user?.id ||
+      e?.criador?.id === user?.id
+  )
+
+  // quando user ou equipesFantasy mudarem, inicializa os campos editáveis
+  useEffect(() => {
+    if (!user) return
+
+    setEditData((prev) => ({
+      nomeEquipe: equipeFantasy?.nome ?? prev.nomeEquipe ?? '',
+      nomeUsuario: user?.nome ?? prev.nomeUsuario ?? '',
+      logo: equipeFantasy?.logo ?? prev.logo ?? '',
+    }))
+  }, [user, equipeFantasy])
+
   if (!user || isLoading) {
     return <div className="p-6">Carregando usuário...</div>
   }
-
-  const equipeFantasy = equipesFantasy.find(
-    (e) => e.idUsuario === user.id
-  )
-
-  const [editData, setEditData] = useState({
-    nomeEquipe: equipeFantasy?.nome ?? '',
-    nomeUsuario: user.nome ?? '',
-    logo: equipeFantasy?.logo ?? '',
-  })
 
   const equipesNaLiga = equipeLiga.filter(
     (e) => e.idEquipeFantasy === equipeFantasy?.id
@@ -108,8 +120,7 @@ export default function Perfil() {
   const handleSave = () => {
   if (
     !editData.nomeEquipe.trim() ||
-    !editData.nomeUsuario.trim() ||
-    !editData.logo.trim()
+    !editData.nomeUsuario.trim()
   ) {
     toast({
       title: 'Campos obrigatórios',
@@ -123,6 +134,31 @@ export default function Perfil() {
   console.log('Salvar dados:', editData)
   ;(async () => {
     try {
+      // atualizar nome do usuário se alterado
+      if (user && editData.nomeUsuario !== user.nome) {
+        // pedir confirmação de senha para permitir alteração
+        const currentPassword = window.prompt('Digite sua senha atual para confirmar alteração do nome')
+        if (!currentPassword) {
+          toast({ title: 'Senha necessária', description: 'A senha atual é necessária para alterar o nome.', variant: 'destructive' })
+          return
+        }
+
+        // validar senha atual
+        try {
+          await api.loginUsuario({ email: user.email, senha: currentPassword })
+        } catch (e) {
+          toast({ title: 'Senha incorreta', description: 'A senha atual não confere.', variant: 'destructive' })
+          return
+        }
+
+        await api.updateUsuario(user.id, {
+          nome: editData.nomeUsuario,
+          email: user.email,
+          senha: currentPassword,
+        })
+      }
+
+      // atualizar equipe fantasy
       if (equipeFantasy && equipeFantasy.id) {
         await api.updateEquipeFantasy(equipeFantasy.id, {
           nome: editData.nomeEquipe,
@@ -131,6 +167,15 @@ export default function Perfil() {
           patrimonio: equipeFantasy.patrimonio ?? 0,
           titulos: equipeFantasy.titulos ?? 0,
         })
+      }
+
+      // atualizar contexto de autenticação para refletir novo nome/email
+      if (user && typeof loginAs === 'function') {
+        try {
+          loginAs(user.id)
+        } catch (e) {
+          /* ignore */
+        }
       }
 
       toast({
@@ -152,11 +197,13 @@ export default function Perfil() {
   const handleCancel = () => {
     setEditando(false)
 
-    setEditData({
-      nomeEquipe: equipeFantasy?.nome ?? '',
-      nomeUsuario: user.nome ?? '',
-      logo: equipeFantasy?.logo ?? '',
-    })
+    if (user && equipeFantasy) {
+      setEditData({
+        nomeEquipe: equipeFantasy?.nome ?? '',
+        nomeUsuario: user?.nome ?? '',
+        logo: equipeFantasy?.logo ?? '',
+      })
+    }
   }
 
   return (
@@ -188,8 +235,8 @@ export default function Perfil() {
                 <AvatarImage src={editData.logo} />
 
                 <AvatarFallback>
-                  {editData.nomeEquipe?.charAt(0) ||
-                    user.nome.charAt(0)}
+                  {(editData.nomeEquipe?.charAt(0) ||
+                    user?.nome?.charAt(0) || '?')}
                 </AvatarFallback>
               </Avatar>
 
@@ -197,15 +244,15 @@ export default function Perfil() {
                 {!editando ? (
                   <>
                     <h2 className="text-xl font-bold">
-                      {editData.nomeEquipe}
+                      {editData.nomeEquipe || '--'}
                     </h2>
 
                     <p className="text-muted-foreground">
-                      {editData.nomeUsuario}
+                      {editData.nomeUsuario || '--'}
                     </p>
 
                     <p className="text-muted-foreground">
-                      {user.email}
+                      {user?.email || '--'}
                     </p>
                   </>
                 ) : (
@@ -334,17 +381,17 @@ export default function Perfil() {
                   <AvatarImage src={melhorLiga.logo} />
 
                   <AvatarFallback>
-                    {melhorLiga.nome.charAt(0)}
+                    {(melhorLiga.nome && melhorLiga.nome !== '-' ? melhorLiga.nome.charAt(0) : '?')}
                   </AvatarFallback>
                 </Avatar>
 
                 <div>
                   <p className="font-medium">
-                    {melhorLiga.nome}
+                    {melhorLiga.nome || '--'}
                   </p>
 
                   <p className="text-sm text-muted-foreground">
-                    🏆 #{melhorLiga.posicao}
+                    🏆 #{melhorLiga.posicao || '--'}
                   </p>
                 </div>
               </div>

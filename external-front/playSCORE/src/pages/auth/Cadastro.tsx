@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect  } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,7 @@ export default function CadastroPage() {
     setError('')
 
     if (formData.senha !== formData.confirmarSenha) {
-      setError('As senhas nao coincidem')
+      setError('As senhas não coincidem')
       return
     }
 
@@ -40,7 +40,7 @@ export default function CadastroPage() {
 
     setIsLoading(true)
     try {
-      const created = await api.createUsuario({
+      const created = await api.registerUsuario({
         nome: formData.nome,
         email: formData.email,
         senha: formData.senha,
@@ -56,8 +56,9 @@ export default function CadastroPage() {
       })
 
       // logar automaticamente
-      loginAs(created.id)
+      await loginAs(created.id)
       navigate('/dashboard')
+
     } catch (error: any) {
       console.error('Erro ao cadastrar', error)
       setError(error?.message || 'Erro ao cadastrar no servidor')

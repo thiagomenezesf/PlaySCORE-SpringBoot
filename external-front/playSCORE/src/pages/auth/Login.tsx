@@ -27,38 +27,20 @@ export default function LoginPage() {
     setError('')
 
     try {
-      const usuarios = await api.listUsuarios()
-      const user = usuarios.find(
-        (u: any) => u.email === formData.email && u.senha === formData.senha
-      )
-
-      if (!user) {
-        setError('E-mail ou senha inválidos. Use uma combinação válida.')
-        setIsLoading(false)
-        return
-      }
+      const user = await api.loginUsuario({
+        email: formData.email,
+        senha: formData.senha,
+      })
 
       loginAs(user.id)
       navigate('/dashboard')
-    } catch (err) {
-      setError('Erro ao conectar com o servidor. Tente novamente.')
-      setIsLoading(false)
-    }
-  }
-
-  const handleQuickLogin = async () => {
-    setIsLoading(true)
-    try {
-      const user = await api.getUsuario(1)
-      if (user) {
-        loginAs(1)
-        navigate('/dashboard')
+    } catch (err: any) {
+      if (err?.message?.includes('E-mail ou senha inválidos')) {
+        setError('E-mail ou senha inválidos. Verifique seus dados e tente novamente.')
       } else {
-        setError('Usuário rápido não encontrado no servidor.')
-        setIsLoading(false)
+        setError('Erro ao conectar com o servidor. Tente novamente.')
       }
-    } catch {
-      setError('Não foi possível efetuar login rápido. Verifique o servidor.')
+    } finally {
       setIsLoading(false)
     }
   }
@@ -141,15 +123,6 @@ export default function LoginPage() {
               {error && (
                 <p className="text-sm text-destructive mt-3">{error}</p>
               )}
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full mt-3"
-                onClick={handleQuickLogin}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Entrando...' : 'Entrar como Thiago (ID 1)'}
-              </Button>
             </FieldGroup>
           </form>
 

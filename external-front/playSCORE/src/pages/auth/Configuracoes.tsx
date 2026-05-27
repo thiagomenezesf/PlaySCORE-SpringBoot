@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Save, ArrowLeft, Settings } from 'lucide-react'
 
@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/use-auth'
 export default function Configuracoes() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  const { user } = useAuth()
+  const { user, loginAs } = useAuth()
 
   // 🔒 SENHA
   const [senhaAtual, setSenhaAtual] = useState('')
@@ -24,7 +24,7 @@ export default function Configuracoes() {
   const [confirmarSenha, setConfirmarSenha] = useState('')
 
   // 📧 EMAIL
-  const [email, setEmail] = useState('thiago@email.com')
+  const [email, setEmail] = useState('')
   const [novoEmail, setNovoEmail] = useState('')
 
   // 🔥 ALTERAR SENHA
@@ -64,11 +64,22 @@ export default function Configuracoes() {
       try {
         if (!user) throw new Error('Usuário não autenticado')
 
+        // Verifica se a senha atual é válida
+        try {
+          await api.loginUsuario({ email: user.email, senha: senhaAtual })
+        } catch (e) {
+          toast({ title: 'Senha incorreta', description: 'A senha atual não confere.', variant: 'destructive' })
+          return
+        }
+
         await api.updateUsuario(user.id, {
           nome: user.nome,
           email: user.email,
           senha: novaSenha,
         })
+
+        // atualizar contexto de usuário
+        loginAs(user.id)
 
         toast({
           title: 'Sucesso ao salvar',
@@ -115,8 +126,12 @@ export default function Configuracoes() {
     ;(async () => {
       try {
         if (!user) throw new Error('Usuário não autenticado')
-        if (!senhaAtual) {
-          toast({ title: 'Senha necessária', description: 'Digite sua senha atual para confirmar a alteração.', variant: 'destructive' })
+
+        // verificar senha atual
+        try {
+          await api.loginUsuario({ email: user.email, senha: senhaAtual })
+        } catch (e) {
+          toast({ title: 'Senha incorreta', description: 'A senha atual não confere.', variant: 'destructive' })
           return
         }
 
@@ -129,6 +144,9 @@ export default function Configuracoes() {
         toast({ title: 'Sucesso ao alterar email', description: 'Email alterado com sucesso!' })
         setEmail(novoEmail)
         setNovoEmail('')
+
+        // atualizar contexto de usuário com os novos dados
+        loginAs(user.id)
       } catch (error) {
         console.error('Erro ao alterar email', error)
         toast({ title: 'Erro', description: 'Não foi possível alterar o email no servidor.', variant: 'destructive' })
@@ -137,6 +155,10 @@ export default function Configuracoes() {
       }
     })()
   }
+
+  useEffect(() => {
+    if (user && user.email) setEmail(user.email)
+  }, [user])
 
   return (
     <div className="min-h-screen bg-background">

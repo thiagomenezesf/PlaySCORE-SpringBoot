@@ -19,6 +19,7 @@ import EsqueciSenha from './pages/auth/EsqueciSenha'
 import RedefinirSenha from './pages/auth/RedefinirSenha'
 import Perfil from './pages/auth/Perfil'
 import Configuracoes from './pages/auth/Configuracoes'
+import ProtectedRoute from '@/components/auth/ProtectedRoute'
 
 function App() {
   return (
@@ -29,20 +30,20 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/cadastro" element={<Cadastro />} />
-            <Route path="/dashboard" element={<DashboardLayout><Dashboard /></DashboardLayout>} />
-            <Route path="/dashboard/escalacao/:ligaId" element={<DashboardLayout><Escalacao /></DashboardLayout>} />
-            <Route path="/campeonatos" element={<DashboardLayout><Campeonatos /></DashboardLayout>} />
-            <Route path="/campeonatos/criar" element={<DashboardLayout><CriarCampeonato /></DashboardLayout>} />
-            <Route path="/campeonatos/:id" element={<DashboardLayout><CampeonatoDetalhe /></DashboardLayout>} />
-            <Route path="/campeonatos/:id/gerenciar" element={<DashboardLayout><GerenciarCampeonato /></DashboardLayout>} />
-            <Route path="/ligas" element={<DashboardLayout><Ligas /></DashboardLayout>} />
-            <Route path="/ligas/criar" element={<DashboardLayout><CriarLiga /></DashboardLayout>} />
-            <Route path="/ligas/:id" element={<DashboardLayout><LigaDetalhe /></DashboardLayout>} />
-            <Route path="/ligas/:id/gerenciar" element={<DashboardLayout><GerenciarLiga /></DashboardLayout>} />
+            <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout><Dashboard /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/dashboard/escalacao/:ligaId" element={<ProtectedRoute><DashboardLayout><Escalacao /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/campeonatos" element={<ProtectedRoute><DashboardLayout><Campeonatos /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/campeonatos/criar" element={<ProtectedRoute><DashboardLayout><CriarCampeonato /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/campeonatos/:id" element={<ProtectedRoute><DashboardLayout><CampeonatoDetalhe /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/campeonatos/:id/gerenciar" element={<ProtectedRoute><DashboardLayout><GerenciarCampeonato /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ligas" element={<ProtectedRoute><DashboardLayout><Ligas /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ligas/criar" element={<ProtectedRoute><DashboardLayout><CriarLiga /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ligas/:id" element={<ProtectedRoute><DashboardLayout><LigaDetalhe /></DashboardLayout></ProtectedRoute>} />
+            <Route path="/ligas/:id/gerenciar" element={<ProtectedRoute><DashboardLayout><GerenciarLiga /></DashboardLayout></ProtectedRoute>} />
             <Route path="/recuperar-senha" element={<EsqueciSenha />} />
             <Route path="/redefinir-senha" element={<RedefinirSenha />} />
-            <Route path="/perfil" element={<Perfil />} />
-            <Route path="/configuracoes" element={<Configuracoes />} />
+            <Route path="/perfil" element={<ProtectedRoute><Perfil /></ProtectedRoute>} />
+            <Route path="/configuracoes" element={<ProtectedRoute><Configuracoes /></ProtectedRoute>} />
           </Routes>
         </Router>
       </AuthProvider>

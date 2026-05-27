@@ -87,19 +87,19 @@ export default function EscalacaoPage() {
     api.listEquipeLiga().then((d) => setApiEquipeLiga(d)).catch(() => null)
   }, [])
 
-  const atletasSource = apiAtletas ?? mockAtletas
-  const clubesSource = apiClubes ?? mockClubes
-  const escalacoesSource = apiEscalacao ?? mockEscalacao
-  const rodadasSource = apiRodadas ?? mockRodadas
-  const campeonatoRodadasSource = apiCampeonatoRodadas ?? mockCampeonatoRodadas
-  const desempenhoAtletaSource = apiDesempenhoAtleta ?? mockDesempenhoAtleta
-  const desempenhoEquipeFantasySource = apiDesempenhoEquipeFantasy ?? mockDesempenhoEquipeFantasy
-  const equipesFantasySource = apiEquipesFantasy ?? mockEquipesFantasy
-  const ligasSource = apiLigas ?? mockLigas
-  const equipeLigaSource = apiEquipeLiga ?? mockEquipeLiga
+  const atletasSource = apiAtletas ?? []
+  const clubesSource = apiClubes ?? []
+  const escalacoesSource = apiEscalacao ?? []
+  const rodadasSource = apiRodadas ?? []
+  const campeonatoRodadasSource = apiCampeonatoRodadas ?? []
+  const desempenhoAtletaSource = apiDesempenhoAtleta ?? []
+  const desempenhoEquipeFantasySource = apiDesempenhoEquipeFantasy ?? []
+  const equipesFantasySource = apiEquipesFantasy ?? []
+  const ligasSource = apiLigas ?? []
+  const equipeLigaSource = apiEquipeLiga ?? []
 
   const liga = ligasSource.find(l => l.id === ligaIdNumber)
-  const campeonatosSource = apiCampeonatos ?? mockCampeonatos
+  const campeonatosSource = apiCampeonatos ?? []
   const campeonato = liga ? (campeonatosSource.find(c => c.id === liga.idCampeonato) ?? null) : null
   const equipeFantasy = equipesFantasySource.find(equipe => equipe.idUsuario === user?.id)
   const equipeLiga = liga && equipeFantasy ? equipeLigaSource.find(el => el.idLiga === liga.id && el.idEquipeFantasy === equipeFantasy.id) : null
