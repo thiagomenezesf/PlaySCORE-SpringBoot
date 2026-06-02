@@ -64,9 +64,8 @@ export default function LigasPage() {
     [user, equipesFantasy]
   )
 
-  const mockTodasLigas = ligasComExtras
-  const mockLigasCriadas = ligasComExtras.filter((liga) => user?.id != null && liga.idUsuarioCriador === user.id)
-  const mockLigasParticipo = ligasComExtras.filter((liga) =>
+  const ligasCriadas = ligasComExtras.filter((liga) => user?.id != null && liga.idUsuarioCriador === user.id)
+  const ligasParticipo = ligasComExtras.filter((liga) =>
     userFantasyTeamIds.some((teamId) =>
       equipeLiga.some((entry) => entry.idLiga === liga.id && entry.idEquipeFantasy === teamId)
     )
@@ -83,7 +82,7 @@ export default function LigasPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-display font-bold">Ligas</h1>
           <p className="text-muted-foreground">
-            Gerencie suas ligas e encontre novas competicoes.
+            Gerencie suas ligas e encontre novas competições.
           </p>
         </div>
         <div className="flex gap-2">
@@ -126,7 +125,7 @@ export default function LigasPage() {
 
         <TabsContent value="todas" className="space-y-6">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {mockTodasLigas
+            {ligasComExtras
               .filter((liga) => liga.nome.toLowerCase().includes(searchTerm.toLowerCase()))
               .map((liga) => (
                 <LeagueCard
@@ -136,7 +135,8 @@ export default function LigasPage() {
                   showJoinButton={
                     user != null &&
                     liga.idUsuarioCriador !== user.id &&
-                    !mockEquipeLiga.some(
+                    userFantasyTeamIds.length > 0 &&
+                    !equipeLiga.some(
                       (entry) =>
                         entry.idLiga === liga.id &&
                         userFantasyTeamIds.includes(entry.idEquipeFantasy)
@@ -148,9 +148,9 @@ export default function LigasPage() {
         </TabsContent>
 
         <TabsContent value="criadas" className="space-y-6">
-          {mockLigasCriadas.length > 0 ? (
+          {ligasCriadas.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mockLigasCriadas
+              {ligasCriadas
                 .filter(liga => liga.nome.toLowerCase().includes(searchTerm.toLowerCase()))
                 .map((liga) => (
                   <LeagueCard
@@ -166,7 +166,7 @@ export default function LigasPage() {
                 <Trophy className="h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Nenhuma liga criada</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  Voce ainda nao criou nenhuma liga. Crie uma agora!
+                  Você ainda não criou nenhuma liga. Crie uma agora!
                 </p>
                 <Button asChild>
                   <Link to="/ligas/criar">
@@ -180,9 +180,9 @@ export default function LigasPage() {
         </TabsContent>
 
         <TabsContent value="participo" className="space-y-6">
-          {mockLigasParticipo.length > 0 ? (
+          {ligasParticipo.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {mockLigasParticipo
+              {ligasParticipo
                 .filter(liga => liga.nome.toLowerCase().includes(searchTerm.toLowerCase()))
                 .map((liga) => (
                   <LeagueCard
@@ -196,9 +196,9 @@ export default function LigasPage() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <Users className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Voce nao participa de nenhuma liga</h3>
+                <h3 className="text-lg font-semibold mb-2">Você não participa de nenhuma liga</h3>
                 <p className="text-muted-foreground text-center mb-4">
-                  Entre em uma liga usando o codigo de acesso.
+                  Entre em uma liga usando o código de acesso.
                 </p>
               </CardContent>
             </Card>

@@ -21,6 +21,7 @@ interface Clube {
   id: string
   nome: string
   logo?: string
+  logoFile?: File | null
 }
 
 interface Atleta {
@@ -28,6 +29,7 @@ interface Atleta {
   nome: string
   posicao: PosicaoAtleta
   foto?: string
+  fotoFile?: File | null
   precoInicial: number
   clubeId: string
 }
@@ -43,17 +45,21 @@ export default function CriarCampeonatoPage() {
   })
   const [clubes, setClubes] = useState<Clube[]>([])
   const [atletas, setAtletas] = useState<Atleta[]>([])
-  const [novoClube, setNovoClube] = useState({ nome: '', logo: '' })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState('')
+  const [novoClube, setNovoClube] = useState({ nome: '', logo: '', logoFile: null as File | null })
   const [novoAtleta, setNovoAtleta] = useState<{
     nome: string
     posicao: PosicaoAtleta | ''
     foto: string
+    fotoFile: File | null
     precoInicial: number
     clubeId: string
   }>({
     nome: '',
     posicao: '',
     foto: '',
+    fotoFile: null,
     precoInicial: 0,
     clubeId: ''
   })
@@ -62,6 +68,18 @@ export default function CriarCampeonatoPage() {
 
   const { user } = useAuth()
 
+  const uploadFile = async (file: File | null, existingUrl?: string) => {
+    const isBlobUrl = existingUrl?.startsWith('blob:')
+    if (!file) {
+      return isBlobUrl ? '' : existingUrl ?? ''
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.uploadFile(formData)
+    return response.url || ''
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user?.id) return
@@ -69,6 +87,7 @@ export default function CriarCampeonatoPage() {
     setIsLoading(true)
 
     try {
+      const logoUrl = await uploadFile(logoFile, logoPreview)
       const campeonatoBody = {
         nome: formData.nome,
         descricao: formData.descricao,
@@ -76,16 +95,20 @@ export default function CriarCampeonatoPage() {
         idUsuario: user.id,
         status: 'ativo',
         numeroDeJogadoresJogando: tipoJogoInfos[formData.tipoJogo as keyof typeof tipoJogoInfos].jogadores,
+        logo: logoUrl,
       }
 
       const savedCampeonato = await api.createCampeonato(campeonatoBody)
 
       const createdClubes = await Promise.all(
-        clubes.map((clube) => api.createClube({
-          nome: clube.nome,
-          logo: clube.logo,
-          idCampeonato: savedCampeonato.id,
-        }))
+        clubes.map(async (clube) => {
+          const logoUrl = await uploadFile(clube.logoFile ?? null, clube.logo)
+          return api.createClube({
+            nome: clube.nome,
+            logo: logoUrl,
+            idCampeonato: savedCampeonato.id,
+          })
+        })
       )
 
       const clubeIdMap = new Map<string, number>()
@@ -94,13 +117,16 @@ export default function CriarCampeonatoPage() {
       })
 
       await Promise.all(
-        atletas.map((atleta) => api.createAtleta({
-          nome: atleta.nome,
-          foto: atleta.foto,
-          posicao: atleta.posicao,
-          precoInicial: atleta.precoInicial,
-          idClube: clubeIdMap.get(atleta.clubeId),
-        }))
+        atletas.map(async (atleta) => {
+          const fotoUrl = await uploadFile(atleta.fotoFile ?? null, atleta.foto)
+          return api.createAtleta({
+            nome: atleta.nome,
+            foto: fotoUrl,
+            posicao: atleta.posicao,
+            precoInicial: atleta.precoInicial,
+            idClube: clubeIdMap.get(atleta.clubeId),
+          })
+        })
       )
 
       navigate('/campeonatos')
@@ -117,10 +143,11 @@ export default function CriarCampeonatoPage() {
       const clube: Clube = {
         id: Date.now().toString(),
         nome: novoClube.nome,
-        logo: novoClube.logo || undefined
+        logo: novoClube.logo || undefined,
+        logoFile: novoClube.logoFile,
       }
       setClubes([...clubes, clube])
-      setNovoClube({ nome: '', logo: '' })
+      setNovoClube({ nome: '', logo: '', logoFile: null })
     }
   }
 
@@ -137,6 +164,7 @@ export default function CriarCampeonatoPage() {
         nome: novoAtleta.nome,
         posicao: novoAtleta.posicao as PosicaoAtleta,
         foto: novoAtleta.foto || undefined,
+        fotoFile: novoAtleta.fotoFile,
         precoInicial: novoAtleta.precoInicial,
         clubeId: novoAtleta.clubeId
       }
@@ -145,6 +173,7 @@ export default function CriarCampeonatoPage() {
         nome: '',
         posicao: '',
         foto: '',
+        fotoFile: null,
         precoInicial: 0,
         clubeId: ''
       })
@@ -233,7 +262,7 @@ export default function CriarCampeonatoPage() {
 
                 <Field>
                   <FieldLabel>Logo do Campeonato (opcional)</FieldLabel>
-                  <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                  <label className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer block">
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                     <p className="text-sm text-muted-foreground">
                       Clique para fazer upload ou arraste uma imagem
@@ -241,7 +270,26 @@ export default function CriarCampeonatoPage() {
                     <p className="text-xs text-muted-foreground mt-1">
                       PNG, JPG ate 2MB
                     </p>
-                  </div>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          setLogoFile(file)
+                          setLogoPreview(URL.createObjectURL(file))
+                        }
+                      }}
+                    />
+                  </label>
+                  {logoPreview && (
+                    <img
+                      src={logoPreview}
+                      alt="Preview do logo do campeonato"
+                      className="mt-4 h-24 w-24 object-cover rounded-lg border"
+                    />
+                  )}
                 </Field>
               </FieldGroup>
             </CardContent>
@@ -281,12 +329,34 @@ export default function CriarCampeonatoPage() {
                   </Field>
                   <Field>
                     <FieldLabel>Logo do Clube (opcional)</FieldLabel>
-                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <label className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer block">
                       <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
                         Clique para fazer upload
                       </p>
-                    </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setNovoClube({
+                              ...novoClube,
+                              logo: URL.createObjectURL(file),
+                              logoFile: file,
+                            })
+                          }
+                        }}
+                      />
+                    </label>
+                    {novoClube.logo && (
+                      <img
+                        src={novoClube.logo}
+                        alt="Preview do clube"
+                        className="mt-4 h-24 w-24 object-cover rounded-lg border"
+                      />
+                    )}
                   </Field>
                   <Button onClick={handleAddClube} disabled={!novoClube.nome.trim()}>
                     <Plus className="h-4 w-4 mr-2" />
@@ -418,12 +488,34 @@ export default function CriarCampeonatoPage() {
                   </Field>
                   <Field>
                     <FieldLabel>Foto do Atleta (opcional)</FieldLabel>
-                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                    <label className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer block">
                       <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
                       <p className="text-xs text-muted-foreground">
                         Clique para fazer upload
                       </p>
-                    </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            setNovoAtleta({
+                              ...novoAtleta,
+                              foto: URL.createObjectURL(file),
+                              fotoFile: file,
+                            })
+                          }
+                        }}
+                      />
+                    </label>
+                    {novoAtleta.foto && (
+                      <img
+                        src={novoAtleta.foto}
+                        alt="Preview do atleta"
+                        className="mt-4 h-24 w-24 object-cover rounded-lg border"
+                      />
+                    )}
                   </Field>
                   <Button
                     onClick={handleAddAtleta}

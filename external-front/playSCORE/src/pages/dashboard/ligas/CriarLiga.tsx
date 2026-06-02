@@ -12,9 +12,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { acoesPontuacao } from '@/lib/jogo-config'
 import api from '@/lib/api'
+import { useAuth } from '@/hooks/use-auth'
 
 export default function CriarLigaPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
   const [campeonatos, setCampeonatos] = useState<any[]>([])
   const [formData, setFormData] = useState({
@@ -23,6 +25,8 @@ export default function CriarLigaPage() {
     idCampeonato: '',
     maxParticipantes: '20',
   })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState('')
   const [regrasPontuacao, setRegrasPontuacao] = useState<{[key: string]: number}>({})
   const [selectedAcoes, setSelectedAcoes] = useState<string[]>([])
 
@@ -40,12 +44,56 @@ export default function CriarLigaPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!user) {
+      alert('Você precisa estar logado para criar uma liga.')
+      return
+    }
+
+    if (!formData.nome.trim() || !formData.idCampeonato) {
+      alert('Preencha o nome e selecione um campeonato.')
+      return
+    }
+
     setIsLoading(true)
 
-    // TODO: Integrar com Spring Boot via Axios
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    try {
+      let logoUrl = ''
+      if (logoFile) {
+        const data = new FormData()
+        data.append('file', logoFile)
+        const uploadResponse = await api.uploadFile(data)
+        logoUrl = uploadResponse.url
+      }
 
-    navigate('/ligas')
+      const created = await api.createLiga({
+        nome: formData.nome,
+        descricao: formData.descricao,
+        idCampeonato: Number(formData.idCampeonato),
+        maximoParticipantes: Number(formData.maxParticipantes),
+        codigoAcesso: generateAccessCode(),
+        idUsuarioCriador: user.id,
+        logo: logoUrl,
+      })
+
+      if (selectedAcoes.length > 0) {
+        await Promise.all(
+          selectedAcoes.map((acaoId) =>
+            api.createRegraPontuacaoLiga({
+              acao: acaoId,
+              valor: Number(regrasPontuacao[acaoId] || 0),
+              idLiga: created.id,
+            })
+          )
+        )
+      }
+
+      navigate(`/ligas/${created.id}`)
+    } catch (error) {
+      console.error('Erro ao criar liga', error)
+      alert('Não foi possível criar a liga. Verifique os dados e tente novamente.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleAddAcao = (acaoId: string) => {
@@ -64,6 +112,21 @@ export default function CriarLigaPage() {
 
   const handlePontuacaoChange = (acaoId: string, pontos: number) => {
     setRegrasPontuacao({ ...regrasPontuacao, [acaoId]: pontos })
+  }
+
+  const handleLogoChange = (file: File | null) => {
+    setLogoFile(file)
+    if (file) {
+      const preview = URL.createObjectURL(file)
+      setLogoPreview(preview)
+    } else {
+      setLogoPreview('')
+    }
+  }
+
+  const generateAccessCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
   }
 
   return (
@@ -153,15 +216,20 @@ export default function CriarLigaPage() {
 
               <Field>
                 <FieldLabel>Logo da Liga (opcional)</FieldLabel>
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                <label className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer block">
                   <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Clique para fazer upload ou arraste uma imagem
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    PNG, JPG ate 2MB
-                  </p>
-                </div>
+                  <p className="text-sm text-muted-foreground">Clique para fazer upload ou arraste uma imagem</p>
+                  <p className="text-xs text-muted-foreground mt-1">PNG, JPG até 2MB</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => handleLogoChange(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                {logoPreview && (
+                  <img src={logoPreview} alt="Preview logo" className="mt-4 h-24 w-24 rounded-lg object-cover" />
+                )}
               </Field>
 
               {/* Regras de Pontuação */}

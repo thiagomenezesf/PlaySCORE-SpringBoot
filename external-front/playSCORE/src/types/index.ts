@@ -52,6 +52,10 @@ export interface Clube {
   logo?: string
   idCampeonato: number // FK para Campeonato.id
   sigla?: string
+  campeonato?: {
+    id: number
+    nome: string
+  }
 }
 
 // ==========================================

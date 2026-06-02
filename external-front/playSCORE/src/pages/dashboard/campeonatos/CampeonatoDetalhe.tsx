@@ -24,20 +24,31 @@ export default function CampeonatoDetalhePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { user } = useAuth()
-  const [campeonatos, setCampeonatos] = useState<Campeonato[]>([])
+  const [campeonato, setCampeonato] = useState<Campeonato | null>(null)
   const [clubes, setClubes] = useState<Clube[]>([])
   const [atletas, setAtletas] = useState<Atleta[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    if (!id) return
+
     const loadData = async () => {
+      setIsLoading(true)
       try {
-        const [campeonatosData, clubesData, atletasData] = await Promise.all([
-          api.listCampeonatos(),
+        const [campeonatoData, clubesData, atletasData] = await Promise.all([
+          api.getCampeonato(Number(id)),
           api.listClubes(),
           api.listAtletas(),
         ])
-        setCampeonatos(campeonatosData)
+
+        if (!campeonatoData) {
+          setCampeonato(null)
+          setClubes([])
+          setAtletas([])
+          return
+        }
+
+        setCampeonato(campeonatoData)
         setClubes(clubesData)
         setAtletas(atletasData)
       } catch (error) {
@@ -46,22 +57,21 @@ export default function CampeonatoDetalhePage() {
         setIsLoading(false)
       }
     }
+
     loadData()
-  }, [])
+  }, [id])
 
   if (isLoading) {
     return <div className="p-6">Carregando campeonato...</div>
   }
-
-  const campeonato = campeonatos.find((camp) => camp.id === Number(id))
 
   if (!campeonato) {
     return <div className="p-6">Campeonato não encontrado</div>
   }
 
   const isOwner = campeonato.idUsuario === user?.id
-  const clubesDoCampeonato = clubes.filter((clube) => clube.idCampeonato === campeonato.id)
-  const atletasDoCampeonato = atletas.filter((atleta) => clubesDoCampeonato.some((clube) => clube.id === atleta.idClube))
+  const clubesDoCampeonato = clubes.filter((clube) => Number(clube.idCampeonato ?? (clube as any).campeonato?.id) === campeonato.id)
+  const atletasDoCampeonato = atletas.filter((atleta) => clubesDoCampeonato.some((clube) => Number(clube.id) === Number(atleta.idClube ?? (atleta as any).clube?.id)))
   const tipoInfo = tipoJogoInfos[campeonato.tipoJogo]
   const statusAtual = campeonato.status ?? 'ativo'
 

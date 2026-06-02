@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import api from '@/lib/api'
 import { useAuth } from '@/hooks/use-auth'
-import type { Atleta, Campeonato, Clube } from '@/types'
+import type { Atleta, Campeonato, Clube, PosicaoAtleta, TipoJogo } from '@/types'
 import { posicaoLabels, tipoJogoOptions, posicoesPorTipoJogo } from '@/lib/jogo-config'
 
 export default function GerenciarCampeonatoPage() {
@@ -49,12 +49,21 @@ export default function GerenciarCampeonatoPage() {
 
   const campeonato = campeonatos.find((camp) => camp.id === Number(id))
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    nome: string
+    descricao: string
+    tipoJogo: TipoJogo
+    status: 'ativo' | 'inativo' | 'finalizado'
+    logo: string
+  }>({
     nome: '',
     descricao: '',
     tipoJogo: 'CAMPO',
     status: 'ativo',
+    logo: '',
   })
+  const [campeonatoLogoFile, setCampeonatoLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState('')
 
   useEffect(() => {
     if (campeonato) {
@@ -63,13 +72,22 @@ export default function GerenciarCampeonatoPage() {
         descricao: campeonato.descricao || '',
         tipoJogo: campeonato.tipoJogo || 'CAMPO',
         status: campeonato.status || 'ativo',
+        logo: campeonato.logo || '',
       })
+      setLogoPreview(campeonato.logo || '')
     }
   }, [campeonato])
 
   const [activeTab, setActiveTab] = useState('info')
-  const [novoClube, setNovoClube] = useState({ nome: '', sigla: '', logo: '' })
-  const [novoAtleta, setNovoAtleta] = useState({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '' })
+  const [novoClube, setNovoClube] = useState({ nome: '', sigla: '', logo: '', logoFile: null as File | null })
+  const [novoAtleta, setNovoAtleta] = useState<{
+    nome: string
+    posicao: PosicaoAtleta | ''
+    precoInicial: string
+    clubeId: string
+    foto: string
+    fotoFile: File | null
+  }>({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '', fotoFile: null })
   const [clubeFiltro, setClubeFilro] = useState<number | 'ALL'>('ALL')
 
   const [editingClubeId, setEditingClubeId] = useState<number | null>(null)
@@ -78,16 +96,25 @@ export default function GerenciarCampeonatoPage() {
     nome: '',
     sigla: '',
     logo: '',
+    logoFile: null as File | null,
   })
 
   const [editingAtletaId, setEditingAtletaId] = useState<number | null>(null)
 
-  const [editAtleta, setEditAtleta] = useState({
+  const [editAtleta, setEditAtleta] = useState<{
+    nome: string
+    posicao: PosicaoAtleta | ''
+    precoInicial: string
+    clubeId: string
+    foto: string
+    fotoFile: File | null
+  }>({
     nome: '',
     posicao: '',
     precoInicial: '',
     clubeId: '',
     foto: '',
+    fotoFile: null,
   })
 
   if (isLoading) {
@@ -104,32 +131,82 @@ export default function GerenciarCampeonatoPage() {
   const atletasFiltrados = clubeFiltro === 'ALL' ? atletasDoCampeonato : atletasDoCampeonato.filter(a => a.idClube === clubeFiltro)
   const posicaoOptions = posicoesPorTipoJogo[formData.tipoJogo] ?? ['GOL', 'ZAG', 'LAT', 'MEI', 'ATA']
 
+  const uploadFile = async (file: File | null, existingUrl?: string) => {
+    const isBlobUrl = existingUrl?.startsWith('blob:')
+    if (!file) {
+      return isBlobUrl ? '' : existingUrl ?? ''
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+    const response = await api.uploadFile(formData)
+    return response.url || ''
+  }
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!isOwner) return
 
-    await new Promise((resolve) => setTimeout(resolve, 800))
-    navigate(`/campeonatos/${campeonato.id}`)
+    setIsLoading(true)
+    try {
+      const logoUrl = await uploadFile(campeonatoLogoFile, formData.logo)
+
+      const payload = {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        tipoJogo: formData.tipoJogo,
+        status: formData.status,
+        logo: logoUrl,
+        idUsuario: campeonato.idUsuario,
+        numeroDeJogadoresJogando: campeonato.numeroDeJogadoresJogando,
+      }
+
+      const updated = await api.updateCampeonato(campeonato.id, payload)
+      setFormData({ ...formData, logo: updated.logo ?? logoUrl })
+      setLogoPreview(updated.logo ?? logoUrl)
+      setIsLoading(false)
+      navigate(`/campeonatos/${campeonato.id}`)
+    } catch (error) {
+      console.error('Erro ao salvar campeonato', error)
+      alert('Não foi possível salvar o campeonato. Tente novamente.')
+      setIsLoading(false)
+    }
   }
 
-  const handleAddClube = () => {
+  const handleDeleteCampeonato = async () => {
+    if (!isOwner) return
+    const confirmDelete = window.confirm('Tem certeza que deseja excluir o campeonato e todos os clubes e ligas vinculados?')
+    if (!confirmDelete) return
+
+    setIsLoading(true)
+    try {
+      await api.deleteCampeonato(campeonato.id)
+      navigate('/campeonatos')
+    } catch (error) {
+      console.error('Erro ao excluir campeonato', error)
+      alert('Não foi possível excluir o campeonato.')
+      setIsLoading(false)
+    }
+  }
+
+  const handleAddClube = async () => {
     if (!isOwner) return
 
-    ;(async () => {
-      try {
-        const payload = {
-          nome: novoClube.nome,
-          sigla: novoClube.sigla,
-          logo: novoClube.logo,
-          idCampeonato: campeonato.id,
-        }
-        const created = await api.createClube(payload)
-        setClubes([...clubes, created])
-        setNovoClube({ nome: '', sigla: '', logo: '' })
-      } catch (error) {
-        console.error('Erro ao criar clube', error)
+    try {
+      const logoUrl = await uploadFile(novoClube.logoFile, novoClube.logo)
+      const payload = {
+        nome: novoClube.nome,
+        sigla: novoClube.sigla,
+        logo: logoUrl,
+        idCampeonato: campeonato.id,
       }
-    })()
+      const created = await api.createClube(payload)
+      setClubes([...clubes, created])
+      setNovoClube({ nome: '', sigla: '', logo: '', logoFile: null })
+    } catch (error) {
+      console.error('Erro ao criar clube', error)
+      alert('Não foi possível criar o clube.')
+    }
   }
 
   const handleEditClube = (clube: Clube) => {
@@ -139,34 +216,53 @@ export default function GerenciarCampeonatoPage() {
       nome: clube.nome,
       sigla: clube.sigla ?? '',
       logo: clube.logo ?? '',
+      logoFile: null,
     })
   }
 
-  const handleSaveClube = () => {
-    console.log('Salvando clube:', editClube)
-
-    setEditingClubeId(null)
-  }
-
-  const handleAddAtleta = () => {
+  const handleSaveClube = async () => {
+    if (!editingClubeId) return
     if (!isOwner) return
 
-    ;(async () => {
-      try {
-        const payload = {
-          nome: novoAtleta.nome,
-          posicao: novoAtleta.posicao,
-          precoInicial: parseFloat(novoAtleta.precoInicial || '0'),
-          foto: novoAtleta.foto,
-          idClube: Number(novoAtleta.clubeId),
-        }
-        const created = await api.createAtleta(payload)
-        setAtletas([...atletas, created])
-        setNovoAtleta({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '' })
-      } catch (error) {
-        console.error('Erro ao criar atleta', error)
+    setIsLoading(true)
+    try {
+      const logoUrl = await uploadFile(editClube.logoFile, editClube.logo)
+      const payload = {
+        nome: editClube.nome,
+        sigla: editClube.sigla,
+        logo: logoUrl,
+        idCampeonato: campeonato.id,
       }
-    })()
+      const updated = await api.updateClube(editingClubeId, payload)
+      setClubes(clubes.map((clube) => (clube.id === updated.id ? updated : clube)))
+      setEditingClubeId(null)
+    } catch (error) {
+      console.error('Erro ao atualizar clube', error)
+      alert('Não foi possível atualizar o clube.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleAddAtleta = async () => {
+    if (!isOwner) return
+
+    try {
+      const fotoUrl = await uploadFile(novoAtleta.fotoFile, novoAtleta.foto)
+      const payload = {
+        nome: novoAtleta.nome,
+        posicao: novoAtleta.posicao,
+        precoInicial: parseFloat(novoAtleta.precoInicial || '0'),
+        foto: fotoUrl,
+        idClube: Number(novoAtleta.clubeId),
+      }
+      const created = await api.createAtleta(payload)
+      setAtletas([...atletas, created])
+      setNovoAtleta({ nome: '', posicao: '', precoInicial: '', clubeId: '', foto: '', fotoFile: null })
+    } catch (error) {
+      console.error('Erro ao criar atleta', error)
+      alert('Não foi possível criar o atleta.')
+    }
   }
 
   const handleEditAtleta = (atleta: Atleta) => {
@@ -178,13 +274,68 @@ export default function GerenciarCampeonatoPage() {
       precoInicial: atleta.precoInicial.toString(),
       clubeId: atleta.idClube.toString(),
       foto: atleta.foto ?? '',
+      fotoFile: null,
     })
   }
 
-  const handleSaveAtleta = () => {
-    console.log('Salvando atleta:', editAtleta)
+  const handleSaveAtleta = async () => {
+    if (!editingAtletaId) return
+    if (!isOwner) return
 
-    setEditingAtletaId(null)
+    setIsLoading(true)
+    try {
+      const fotoUrl = await uploadFile(editAtleta.fotoFile, editAtleta.foto)
+      const payload = {
+        nome: editAtleta.nome,
+        posicao: editAtleta.posicao,
+        precoInicial: parseFloat(editAtleta.precoInicial || '0'),
+        foto: fotoUrl,
+        idClube: Number(editAtleta.clubeId),
+      }
+      const updated = await api.updateAtleta(editingAtletaId, payload)
+      setAtletas(atletas.map((atleta) => (atleta.id === updated.id ? updated : atleta)))
+      setEditingAtletaId(null)
+    } catch (error) {
+      console.error('Erro ao atualizar atleta', error)
+      alert('Não foi possível atualizar o atleta.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteClube = async (id: number) => {
+    if (!isOwner) return
+    const confirmDelete = window.confirm('Tem certeza que deseja excluir este clube e todos os atletas vinculados?')
+    if (!confirmDelete) return
+
+    setIsLoading(true)
+    try {
+      await api.deleteClube(id)
+      setClubes(clubes.filter((clube) => clube.id !== id))
+      setAtletas(atletas.filter((atleta) => atleta.idClube !== id))
+    } catch (error) {
+      console.error('Erro ao excluir clube', error)
+      alert('Não foi possível excluir o clube.')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDeleteAtleta = async (id: number) => {
+    if (!isOwner) return
+    const confirmDelete = window.confirm('Tem certeza que deseja excluir este atleta?')
+    if (!confirmDelete) return
+
+    setIsLoading(true)
+    try {
+      await api.deleteAtleta(id)
+      setAtletas(atletas.filter((atleta) => atleta.id !== id))
+    } catch (error) {
+      console.error('Erro ao excluir atleta', error)
+      alert('Não foi possível excluir o atleta.')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -265,11 +416,31 @@ export default function GerenciarCampeonatoPage() {
 
                     <Field>
                       <FieldLabel>Logo do Campeonato (opcional)</FieldLabel>
-                      <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
+                      <label className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer block">
                         <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                         <p className="text-sm text-muted-foreground">Clique para fazer upload ou arraste uma imagem</p>
                         <p className="text-xs text-muted-foreground mt-1">PNG, JPG até 2MB</p>
-                      </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          disabled={!isOwner}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) {
+                              setCampeonatoLogoFile(file)
+                              setLogoPreview(URL.createObjectURL(file))
+                            }
+                          }}
+                        />
+                      </label>
+                      {logoPreview && (
+                        <img
+                          src={logoPreview}
+                          alt="Preview do logo do campeonato"
+                          className="mt-4 h-24 w-24 object-cover rounded-lg border"
+                        />
+                      )}
                     </Field>
                   </FieldGroup>
 
@@ -280,6 +451,11 @@ export default function GerenciarCampeonatoPage() {
                     <Button type="submit" disabled={!isOwner} className="w-full sm:w-auto">
                       Salvar Alterações
                     </Button>
+                    {isOwner && (
+                      <Button type="button" variant="destructive" onClick={handleDeleteCampeonato} className="w-full sm:w-auto">
+                        Excluir Campeonato
+                      </Button>
+                    )}
                   </div>
                 </form>
               </CardContent>
@@ -375,6 +551,7 @@ export default function GerenciarCampeonatoPage() {
                           setNovoClube({
                             ...novoClube,
                             logo: imageUrl,
+                            logoFile: file,
                           })
                         }
                       }}
@@ -446,7 +623,12 @@ export default function GerenciarCampeonatoPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
 
-                            <Button variant="ghost" size="sm" disabled={!isOwner}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!isOwner}
+                              onClick={() => handleDeleteClube(clube.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -512,6 +694,7 @@ export default function GerenciarCampeonatoPage() {
                               setEditClube({
                                 ...editClube,
                                 logo: imageUrl,
+                                logoFile: file,
                               })
                             }
                           }}
@@ -587,14 +770,14 @@ export default function GerenciarCampeonatoPage() {
                     <FieldLabel htmlFor="atletaPosicao">Posição</FieldLabel>
                     <Select
                       value={novoAtleta.posicao}
-                      onValueChange={(value) => setNovoAtleta({ ...novoAtleta, posicao: value })}
+                      onValueChange={(value) => setNovoAtleta({ ...novoAtleta, posicao: value as PosicaoAtleta })}
                       disabled={!isOwner}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a posição" />
                       </SelectTrigger>
                       <SelectContent>
-                        {posicaoOptions.map((value) => (
+                        {posicaoOptions.map((value: PosicaoAtleta) => (
                           <SelectItem key={value} value={value}>
                             {posicaoLabels[value]}
                           </SelectItem>
@@ -661,6 +844,7 @@ export default function GerenciarCampeonatoPage() {
                           setNovoAtleta({
                             ...novoAtleta,
                             foto: imageUrl,
+                            fotoFile: file,
                           })
                         }
                       }}
@@ -734,7 +918,12 @@ export default function GerenciarCampeonatoPage() {
                               <Pencil className="h-4 w-4" />
                             </Button>
 
-                            <Button variant="ghost" size="sm" disabled={!isOwner}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={!isOwner}
+                              onClick={() => handleDeleteAtleta(atleta.id)}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -772,7 +961,7 @@ export default function GerenciarCampeonatoPage() {
                         onValueChange={(value) =>
                           setEditAtleta({
                             ...editAtleta,
-                            posicao: value,
+                            posicao: value as PosicaoAtleta,
                           })
                         }
                       >
@@ -781,7 +970,7 @@ export default function GerenciarCampeonatoPage() {
                         </SelectTrigger>
 
                         <SelectContent>
-                          {posicaoOptions.map((value) => (
+                          {posicaoOptions.map((value: PosicaoAtleta) => (
                             <SelectItem key={value} value={value}>
                               {posicaoLabels[value]}
                             </SelectItem>
@@ -855,6 +1044,7 @@ export default function GerenciarCampeonatoPage() {
                               setEditAtleta({
                                 ...editAtleta,
                                 foto: imageUrl,
+                                fotoFile: file,
                               })
                             }
                           }}

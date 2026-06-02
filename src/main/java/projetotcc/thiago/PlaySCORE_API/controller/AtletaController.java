@@ -30,4 +30,14 @@ public class AtletaController {
     public Atleta salvar(@Valid @RequestBody AtletaRequest request) {
         return atletaService.salvar(request);
     }
+
+    @PutMapping("/{id}")
+    public Atleta atualizar(@PathVariable Long id, @Valid @RequestBody AtletaRequest request) {
+        return atletaService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        atletaService.deletar(id);
+    }
 }

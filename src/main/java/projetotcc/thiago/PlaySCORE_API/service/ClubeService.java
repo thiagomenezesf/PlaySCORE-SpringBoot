@@ -40,4 +40,22 @@ public class ClubeService {
         clube.setCampeonato(campeonato);
         return clubeRepository.save(clube);
     }
+
+    public Clube atualizar(Long id, ClubeRequest request) {
+        Clube clube = buscarPorId(id);
+        clube.setNome(request.getNome());
+        clube.setLogo(request.getLogo());
+        clube.setSigla(request.getSigla());
+        if (request.getIdCampeonato() != null) {
+            Campeonato campeonato = campeonatoRepository.findById(request.getIdCampeonato())
+                    .orElseThrow(() -> new ResourceNotFoundException("Campeonato", request.getIdCampeonato()));
+            clube.setCampeonato(campeonato);
+        }
+        return clubeRepository.save(clube);
+    }
+
+    public void deletar(Long id) {
+        Clube clube = buscarPorId(id);
+        clubeRepository.delete(clube);
+    }
 }

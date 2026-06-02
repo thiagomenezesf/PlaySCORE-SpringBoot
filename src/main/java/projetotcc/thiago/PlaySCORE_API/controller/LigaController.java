@@ -30,4 +30,14 @@ public class LigaController {
     public Liga salvar(@Valid @RequestBody LigaRequest request) {
         return ligaService.salvar(request);
     }
+
+    @PutMapping("/{id}")
+    public Liga atualizar(@PathVariable Long id, @Valid @RequestBody LigaRequest request) {
+        return ligaService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        ligaService.deletar(id);
+    }
 }

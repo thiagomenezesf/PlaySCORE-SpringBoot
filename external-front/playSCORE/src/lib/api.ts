@@ -1,32 +1,83 @@
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080';
 
+function normalizeCampeonato(c: any) {
+  return { ...c, idUsuario: c.criador?.id ?? c.idUsuario };
+}
+
+function normalizeClube(c: any) {
+  return {
+    ...c,
+    idCampeonato: Number(c.campeonato?.id ?? c.idCampeonato ?? 0),
+    campeonato: c.campeonato ? { id: Number(c.campeonato.id), nome: c.campeonato.nome } : undefined,
+  };
+}
+
+function normalizeAtleta(a: any) {
+  return {
+    ...a,
+    idClube: Number(a.clube?.id ?? a.idClube ?? 0),
+    clube: a.clube ? { id: Number(a.clube.id), nome: a.clube.nome } : undefined,
+  };
+}
+
+function normalizeLiga(l: any) {
+  return {
+    ...l,
+    idCampeonato: Number(l.campeonato?.id ?? l.idCampeonato ?? 0),
+    idUsuarioCriador: l.criador?.id ?? l.idUsuarioCriador,
+  };
+}
+
+function normalizeEquipeLiga(e: any) {
+  return {
+    ...e,
+    idLiga: Number(e.liga?.id ?? e.idLiga ?? 0),
+    idEquipeFantasy: Number(e.equipeFantasy?.id ?? e.idEquipeFantasy ?? 0),
+    patrimonio: Number(e.patrimonio ?? 0),
+  };
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const url = `${API_BASE}${path}`;
+  const headers: HeadersInit = {};
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
   const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     credentials: 'include',
     ...options,
   });
+
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`API error ${res.status}: ${text}`);
   }
   if (res.status === 204) return null;
+  const contentType = res.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    return null;
+  }
   return res.json();
 }
 
 export const api = {
+  uploadFile: (formData: FormData) => request('/upload', { method: 'POST', body: formData }),
+
   // Campeonatos
   listCampeonatos: async () => {
     const data = await request('/campeonatos');
-    return Array.isArray(data) ? data.map((c: any) => ({ ...c, idUsuario: c.criador?.id ?? c.idUsuario })) : [];
+    return Array.isArray(data) ? data.map(normalizeCampeonato) : [];
   },
   getCampeonato: async (id: number) => {
     const c = await request(`/campeonatos/${id}`);
     if (!c) return c;
-    return { ...c, idUsuario: c.criador?.id ?? c.idUsuario };
+    return normalizeCampeonato(c);
   },
   createCampeonato: (body: any) => request('/campeonatos', { method: 'POST', body: JSON.stringify(body) }),
+  updateCampeonato: (id: number, body: any) => request(`/campeonatos/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteCampeonato: (id: number) => request(`/campeonatos/${id}`, { method: 'DELETE' }),
 
   // Escalações
   listEscalacoes: () => request('/escalacoes'),
@@ -35,8 +86,22 @@ export const api = {
   // Rodada fechar
   fecharRodada: (id: number) => request(`/rodadas/${id}/fechar`, { method: 'POST' }),
   // Atletas / Clubes / Rodadas / Desempenhos / Ligas / Equipes
-  listAtletas: () => request('/atletas'),
-  listClubes: () => request('/clubes'),
+  listAtletas: async () => {
+    const data = await request('/atletas');
+    return Array.isArray(data) ? data.map(normalizeAtleta) : [];
+  },
+  getAtleta: async (id: number) => normalizeAtleta(await request(`/atletas/${id}`)),
+  createAtleta: async (body: any) => normalizeAtleta(await request('/atletas', { method: 'POST', body: JSON.stringify(body) })),
+  updateAtleta: async (id: number, body: any) => normalizeAtleta(await request(`/atletas/${id}`, { method: 'PUT', body: JSON.stringify(body) })),
+  deleteAtleta: (id: number) => request(`/atletas/${id}`, { method: 'DELETE' }),
+  listClubes: async () => {
+    const data = await request('/clubes');
+    return Array.isArray(data) ? data.map(normalizeClube) : [];
+  },
+  getClube: async (id: number) => normalizeClube(await request(`/clubes/${id}`)),
+  createClube: async (body: any) => normalizeClube(await request('/clubes', { method: 'POST', body: JSON.stringify(body) })),
+  updateClube: async (id: number, body: any) => normalizeClube(await request(`/clubes/${id}`, { method: 'PUT', body: JSON.stringify(body) })),
+  deleteClube: (id: number) => request(`/clubes/${id}`, { method: 'DELETE' }),
   listUsuarios: () => request('/usuarios'),
   getUsuario: (id: number) => request(`/usuarios/${id}`),
   loginUsuario: (body: any) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
@@ -47,15 +112,28 @@ export const api = {
   listCampeonatoRodadas: () => request('/campeonato-rodadas'),
   listDesempenhoAtleta: () => request('/desempenho-atleta'),
   listDesempenhoEquipeFantasy: () => request('/desempenho-equipe-fantasy'),
-  listRegraPontuacaoLiga: () => request('/regras-pontuacao-liga'),
+  listRegraPontuacaoLiga: async () => {
+    const data = await request('/regras-pontuacao-liga');
+    return Array.isArray(data) ? data : [];
+  },
   listEquipesFantasy: () => request('/equipe-fantasy'),
   getEquipeFantasy: (id: number) => request(`/equipe-fantasy/${id}`),
   updateEquipeFantasy: (id: number, body: any) => request(`/equipe-fantasy/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   createEquipeFantasy: (body: any) => request('/equipe-fantasy', { method: 'POST', body: JSON.stringify(body) }),
-  listLigas: () => request('/ligas'),
-  listEquipeLiga: () => request('/equipe-liga'),
-  createClube: (body: any) => request('/clubes', { method: 'POST', body: JSON.stringify(body) }),
-  createAtleta: (body: any) => request('/atletas', { method: 'POST', body: JSON.stringify(body) }),
+  listLigas: async () => {
+    const data = await request('/ligas');
+    return Array.isArray(data) ? data.map(normalizeLiga) : [];
+  },
+  getLiga: async (id: number) => normalizeLiga(await request(`/ligas/${id}`)),
+  createLiga: async (body: any) => normalizeLiga(await request('/ligas', { method: 'POST', body: JSON.stringify(body) })),
+  updateLiga: async (id: number, body: any) => normalizeLiga(await request(`/ligas/${id}`, { method: 'PUT', body: JSON.stringify(body) })),
+  deleteLiga: (id: number) => request(`/ligas/${id}`, { method: 'DELETE' }),
+  listEquipeLiga: async () => {
+    const data = await request('/equipe-liga');
+    return Array.isArray(data) ? data.map(normalizeEquipeLiga) : [];
+  },
+  createEquipeLiga: (body: any) => request('/equipe-liga', { method: 'POST', body: JSON.stringify(body) }),
+  createRegraPontuacaoLiga: (body: any) => request('/regras-pontuacao-liga', { method: 'POST', body: JSON.stringify(body) }),
 };
 
 export default api;

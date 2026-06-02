@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Shield, Settings, Copy, Trophy, Plus, X } from 'lucide-react'
+import { ArrowLeft, Shield, Copy, Trophy, Plus, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/use-auth'
 import api from '@/lib/api'
-import type { Campeonato, EquipeFantasy, Liga } from '@/types'
+import type { Campeonato, Liga } from '@/types'
 import { acoesPontuacao } from '@/lib/jogo-config'
 
 export default function GerenciarLigaPage() {
@@ -21,141 +21,210 @@ export default function GerenciarLigaPage() {
   const { id } = useParams()
   const { user } = useAuth()
   const [liga, setLiga] = useState<Liga | null>(null)
-  const [campeonatos, setCampeonatos] = useState<any[]>([])
+  const [campeonatos, setCampeonatos] = useState<Campeonato[]>([])
   const [equipeLiga, setEquipeLiga] = useState<any[]>([])
-  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
-  const [regrasPontuacao, setRegrasPontuacao] = useState<any[]>([])
+  const [regras, setRegras] = useState<any[]>([])
+
+  const [formData, setFormData] = useState({
+    nome: '',
+    descricao: '',
+    idCampeonato: '',
+    maxParticipantes: '20',
+    codigoAcesso: '',
+  })
+  const [selectedAcoes, setSelectedAcoes] = useState<string[]>([])
+  const [regrasPontuacao, setRegrasPontuacao] = useState<Record<string, number>>({})
+  const [activeTab, setActiveTab] = useState<'info' | 'regras'>('info')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     const loadData = async () => {
+      if (!id) return
+      setIsLoading(true)
+
       try {
-        const [ligasData, campeonatosData, equipeLigaData, equipesFantasyData, regraspont] = await Promise.all([
-          api.listLigas(),
+        const [currentLiga, campeonatosData, equipeLigaData, regrasData] = await Promise.all([
+          api.getLiga(Number(id)),
           api.listCampeonatos(),
           api.listEquipeLiga(),
-          api.listEquipesFantasy(),
           api.listRegraPontuacaoLiga(),
         ])
 
-        const currentLiga = ligasData.find((l: any) => l.id === Number(id))
-        setLiga(currentLiga)
+        if (currentLiga) {
+          setLiga(currentLiga)
+          setFormData({
+            nome: currentLiga.nome,
+            descricao: currentLiga.descricao || '',
+            idCampeonato: String(currentLiga.idCampeonato),
+            maxParticipantes: String(currentLiga.maxParticipantes || 20),
+            codigoAcesso: currentLiga.codigoAcesso,
+          })
+
+          const leagueRules = regrasData.filter((regra: any) => regra.idLiga === currentLiga.id)
+          setRegras(leagueRules)
+          setSelectedAcoes(leagueRules.map((regra: any) => regra.acao))
+          setRegrasPontuacao(
+            leagueRules.reduce((acc: Record<string, number>, regra: any) => {
+              acc[regra.acao] = regra.valor
+              return acc
+            }, {})
+          )
+        }
+
         setCampeonatos(campeonatosData)
-        setEquipeLiga(equipeLigaData)
-        setEquipesFantasy(equipesFantasyData)
-        setRegrasPontuacao(regraspont)
+        setEquipeLiga(equipeLigaData.filter((entry: any) => entry.idLiga === Number(id)))
       } catch (error) {
         console.error('Erro ao carregar dados da liga', error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
     loadData()
   }, [id])
 
-  if (!liga) {
-    return <div className="flex items-center justify-center py-12">Carregando...</div>
+  const isOwner = user?.id != null && liga?.idUsuarioCriador === user.id
+  const participantes = equipeLiga.length
+  const campeonato = campeonatos.find((camp) => camp.id === Number(formData.idCampeonato))
+
+  const handleSave = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!isOwner || !liga) return
+    setIsSaving(true)
+
+    try {
+      const updated = await api.updateLiga(liga.id, {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        idCampeonato: Number(formData.idCampeonato),
+        maxParticipantes: Number(formData.maxParticipantes),
+        codigoAcesso: formData.codigoAcesso,
+        idUsuarioCriador: liga.idUsuarioCriador,
+      })
+
+      setLiga(updated)
+      setFormData({
+        nome: updated.nome,
+        descricao: updated.descricao || '',
+        idCampeonato: String(updated.idCampeonato),
+        maxParticipantes: String(updated.maxParticipantes || 20),
+        codigoAcesso: updated.codigoAcesso,
+      })
+      alert('Liga atualizada com sucesso.')
+    } catch (error) {
+      console.error('Erro ao atualizar liga', error)
+      alert('Não foi possível atualizar a liga.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  const campeonato = (campeonatos as Campeonato[]).find(
-    (camp) => camp.id === liga.idCampeonato
-  )
+  const handleSaveRules = async () => {
+    if (!isOwner || !liga) return
 
-  const isOwner = liga.idUsuarioCriador === user?.id
+    const existingAcoes = new Set(regras.map((regra) => regra.acao))
+    const rulesToCreate = selectedAcoes.filter((acao) => !existingAcoes.has(acao))
 
-  const participantes = mockEquipeLiga.filter(
-    (entry) => entry.idLiga === liga!.id
-  ).length
+    if (rulesToCreate.length === 0) {
+      alert('Nenhuma regra nova para adicionar.')
+      return
+    }
 
-  const equipes = (mockEquipesFantasy as EquipeFantasy[]).filter((equipe) =>
-    mockEquipeLiga.some(
-      (entry) =>
-        entry.idEquipeFantasy === equipe.id &&
-        entry.idLiga === liga!.id
-    )
-  )
+    setIsSaving(true)
+    try {
+      await Promise.all(
+        rulesToCreate.map((acao) =>
+          api.createRegraPontuacaoLiga({
+            acao,
+            valor: Number(regrasPontuacao[acao] || 0),
+            idLiga: liga.id,
+          })
+        )
+      )
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
+      const allRules = await api.listRegraPontuacaoLiga()
+      const leagueRules = allRules.filter((regra: any) => regra.idLiga === liga.id)
+      setRegras(leagueRules)
+      alert('Regras atualizadas com sucesso.')
+    } catch (error) {
+      console.error('Erro ao salvar regras', error)
+      alert('Não foi possível salvar as regras.')
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
-    if (!isOwner) return
+  const handleDelete = async () => {
+    if (!isOwner || !liga) return
+    if (!window.confirm('Tem certeza que deseja excluir esta liga? Isso não pode ser desfeito.')) {
+      return
+    }
 
-    await new Promise((resolve) => setTimeout(resolve, 800))
-
-    navigate(`/ligas/${liga.id}`)
+    setIsDeleting(true)
+    try {
+      await api.deleteLiga(liga.id)
+      navigate('/ligas')
+    } catch (error) {
+      console.error('Erro ao excluir liga', error)
+      alert('Não foi possível excluir a liga.')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   const handleCopyCode = () => {
+    if (!liga?.codigoAcesso) return
     navigator.clipboard.writeText(liga.codigoAcesso)
-
     setCopied(true)
-
-    setTimeout(() => setCopied(false), 1400)
+    setTimeout(() => setCopied(false), 1500)
   }
 
   const handleAddAcao = (acaoId: string) => {
     if (!selectedAcoes.includes(acaoId)) {
       setSelectedAcoes([...selectedAcoes, acaoId])
-
-      setRegrasPontuacao({
-        ...regrasPontuacao,
-        [acaoId]: 0
-      })
+      setRegrasPontuacao({ ...regrasPontuacao, [acaoId]: 0 })
     }
   }
 
   const handleRemoveAcao = (acaoId: string) => {
-    setSelectedAcoes(
-      selectedAcoes.filter((id) => id !== acaoId)
-    )
-
-    const novasRegras = { ...regrasPontuacao }
-
-    delete novasRegras[acaoId]
-
-    setRegrasPontuacao(novasRegras)
+    setSelectedAcoes(selectedAcoes.filter((acao) => acao !== acaoId))
+    const newRegras = { ...regrasPontuacao }
+    delete newRegras[acaoId]
+    setRegrasPontuacao(newRegras)
   }
 
   const handlePontuacaoChange = (acaoId: string, pontos: number) => {
-    setRegrasPontuacao({
-      ...regrasPontuacao,
-      [acaoId]: pontos
-    })
+    setRegrasPontuacao({ ...regrasPontuacao, [acaoId]: pontos })
+  }
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center py-12">Carregando...</div>
+  }
+
+  if (!liga) {
+    return <div className="flex items-center justify-center py-12">Liga não encontrada</div>
   }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(`/ligas/${liga.id}`)}
-        >
+        <Button variant="ghost" size="icon" onClick={() => navigate(`/ligas/${liga.id}`)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
 
         <div>
-          <h1 className="text-2xl font-display font-bold">
-            Gerenciar Liga
-          </h1>
-
-          <p className="text-muted-foreground">
-            Atualize as informações da liga e revise os dados de participação.
-          </p>
+          <h1 className="text-2xl font-display font-bold">Gerenciar Liga</h1>
+          <p className="text-muted-foreground">Atualize as informações e visualize os dados da sua liga.</p>
         </div>
       </div>
 
-      <Tabs
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="space-y-6"
-      >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList>
-          <TabsTrigger value="info">
-            Informações
-          </TabsTrigger>
-
-          <TabsTrigger value="regras">
-            Regras de Pontuação
-          </TabsTrigger>
+          <TabsTrigger value="info">Informações</TabsTrigger>
+          <TabsTrigger value="regras">Regras</TabsTrigger>
         </TabsList>
 
         <TabsContent value="info" className="space-y-6">
@@ -166,81 +235,46 @@ export default function GerenciarLigaPage() {
                   <Shield className="h-5 w-5 text-primary" />
                   Dados da Liga
                 </CardTitle>
-
-                <CardDescription>
-                  Edite o nome, descrição e o campeonato vinculado.
-                </CardDescription>
+                <CardDescription>Edite o nome, descrição e o campeonato vinculado.</CardDescription>
               </CardHeader>
-
               <CardContent>
-                <form
-                  onSubmit={handleSubmit}
-                  className="space-y-4"
-                >
+                <form onSubmit={handleSave} className="space-y-4">
                   <FieldGroup>
                     <Field>
-                      <FieldLabel htmlFor="nome">
-                        Nome da Liga
-                      </FieldLabel>
-
+                      <FieldLabel htmlFor="nome">Nome da Liga</FieldLabel>
                       <Input
                         id="nome"
                         value={formData.nome}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            nome: e.target.value
-                          })
-                        }
+                        onChange={(event) => setFormData({ ...formData, nome: event.target.value })}
                         disabled={!isOwner}
                         required
                       />
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="descricao">
-                        Descrição
-                      </FieldLabel>
-
+                      <FieldLabel htmlFor="descricao">Descrição</FieldLabel>
                       <Textarea
                         id="descricao"
                         rows={4}
                         value={formData.descricao}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            descricao: e.target.value
-                          })
-                        }
+                        onChange={(event) => setFormData({ ...formData, descricao: event.target.value })}
                         disabled={!isOwner}
                       />
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="campeonato">
-                        Campeonato
-                      </FieldLabel>
-
+                      <FieldLabel htmlFor="campeonato">Campeonato</FieldLabel>
                       <Select
                         value={formData.idCampeonato}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            idCampeonato: value
-                          })
-                        }
+                        onValueChange={(value) => setFormData({ ...formData, idCampeonato: value })}
                         disabled={!isOwner}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione um campeonato" />
                         </SelectTrigger>
-
                         <SelectContent>
-                          {mockCampeonatos.map((camp) => (
-                            <SelectItem
-                              key={camp.id}
-                              value={camp.id.toString()}
-                            >
+                          {campeonatos.map((camp) => (
+                            <SelectItem key={camp.id} value={camp.id.toString()}>
                               {camp.nome}
                             </SelectItem>
                           ))}
@@ -249,39 +283,23 @@ export default function GerenciarLigaPage() {
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="maxParticipantes">
-                        Máximo de Participantes
-                      </FieldLabel>
-
+                      <FieldLabel htmlFor="maxParticipantes">Máximo de Participantes</FieldLabel>
                       <Input
                         id="maxParticipantes"
                         type="number"
                         min={2}
                         value={formData.maxParticipantes}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            maxParticipantes: e.target.value
-                          })
-                        }
+                        onChange={(event) => setFormData({ ...formData, maxParticipantes: event.target.value })}
                         disabled={!isOwner}
                       />
                     </Field>
 
                     <Field>
-                      <FieldLabel htmlFor="codigoAcesso">
-                        Código de Acesso
-                      </FieldLabel>
-
+                      <FieldLabel htmlFor="codigoAcesso">Código de Acesso</FieldLabel>
                       <Input
                         id="codigoAcesso"
                         value={formData.codigoAcesso}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            codigoAcesso: e.target.value
-                          })
-                        }
+                        onChange={(event) => setFormData({ ...formData, codigoAcesso: event.target.value })}
                         disabled={!isOwner}
                         required
                       />
@@ -289,22 +307,11 @@ export default function GerenciarLigaPage() {
                   </FieldGroup>
 
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        navigate(`/ligas/${liga.id}`)
-                      }
-                    >
+                    <Button type="button" variant="outline" onClick={() => navigate(`/ligas/${liga.id}`)}>
                       Cancelar
                     </Button>
-
-                    <Button
-                      type="submit"
-                      disabled={!isOwner}
-                      className="w-full sm:w-auto"
-                    >
-                      Salvar Alterações
+                    <Button type="submit" disabled={!isOwner || isSaving}>
+                      {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                     </Button>
                   </div>
                 </form>
@@ -314,93 +321,49 @@ export default function GerenciarLigaPage() {
             <div className="space-y-4">
               <Card className="space-y-3">
                 <CardHeader>
-                  <CardTitle>
-                    Resumo da Liga
-                  </CardTitle>
+                  <CardTitle>Resumo da Liga</CardTitle>
                 </CardHeader>
-
-                <CardContent className="space-y-3">
+                <CardContent className="space-y-4">
                   <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
                     <div>
-                      <p className="text-sm text-muted-foreground">
-                        Código de Acesso
-                      </p>
-
-                      <p className="font-medium">
-                        {liga.codigoAcesso}
-                      </p>
+                      <p className="text-sm text-muted-foreground">Código de Acesso</p>
+                      <p className="font-medium">{liga.codigoAcesso}</p>
                     </div>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyCode}
-                    >
-                      <Copy className="mr-2 h-4 w-4" />
-
-                      {copied ? 'Copiado' : 'Copiar'}
+                    <Button variant="outline" size="sm" onClick={handleCopyCode}>
+                      <Copy className="mr-2 h-4 w-4" /> {copied ? 'Copiado' : 'Copiar'}
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex justify-between">
                       <span>Campeonato</span>
-
-                      <span>
-                        {campeonato?.nome ?? 'Não vinculado'}
-                      </span>
+                      <span>{campeonato?.nome ?? 'Não vinculado'}</span>
                     </div>
-
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex justify-between">
                       <span>Participantes</span>
-
                       <span>{participantes}</span>
                     </div>
-
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>Equipes</span>
-
-                      <span>
-                        {equipes.length}/{liga.maxParticipantes}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <div className="flex justify-between">
                       <span>Status</span>
-
-                      <Badge variant="secondary">
-                        Ativa
-                      </Badge>
+                      <Badge variant="secondary">Ativa</Badge>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>
-                    Permissão
-                  </CardTitle>
-
-                  <CardDescription>
-                    {isOwner
-                      ? 'Você é o criador desta liga.'
-                      : 'Apenas o criador pode editar os dados da liga.'}
-                  </CardDescription>
-                </CardHeader>
-
-                <CardContent>
-                  <div className="flex items-center gap-2">
-                    <Settings className="h-5 w-5 text-primary" />
-
-                    <span>
-                      {isOwner
-                        ? 'Proprietário'
-                        : 'Somente leitura'}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+              {isOwner && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Excluir Liga</CardTitle>
+                    <CardDescription>Esta ação remove a liga permanentemente.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
+                      {isDeleting ? 'Excluindo...' : 'Excluir Liga'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         </TabsContent>
@@ -409,120 +372,74 @@ export default function GerenciarLigaPage() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-primary" />
-                Regras de Pontuação
+                <Trophy className="h-5 w-5 text-primary" /> Regras de Pontuação
               </CardTitle>
-
-              <CardDescription>
-                Selecione as ações que darão pontos nesta liga
-              </CardDescription>
+              <CardDescription>Visualize e adicione regras de pontuação para a liga.</CardDescription>
             </CardHeader>
-
             <CardContent>
               <FieldGroup className="space-y-4">
                 <Field>
-                  <FieldLabel>
-                    Regras de Pontuação
-                  </FieldLabel>
-
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Selecione as ações que darão pontos na sua liga e defina a pontuação para cada uma.
-                      </p>
-
-                      <div className="grid gap-2">
-                        {acoesPontuacao.map((acao) => (
-                          <div
-                            key={acao.id}
-                            className="flex items-center justify-between p-3 border rounded-lg"
-                          >
-                            <div>
-                              <p className="font-medium text-sm">
-                                {acao.nome}
-                              </p>
-
-                              <p className="text-xs text-muted-foreground">
-                                {acao.descricao}
-                              </p>
-                            </div>
-
-                            {selectedAcoes.includes(acao.id) ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                disabled={!isOwner}
-                                onClick={() =>
-                                  handleRemoveAcao(acao.id)
-                                }
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            ) : (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                disabled={!isOwner}
-                                onClick={() =>
-                                  handleAddAcao(acao.id)
-                                }
-                              >
-                                <Plus className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                  <FieldLabel>Regras Atuais</FieldLabel>
+                  {regras.length > 0 ? (
+                    <div className="space-y-2">
+                      {regras.map((regra) => (
+                        <div key={regra.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                          <span>{regra.acao}</span>
+                          <span className="font-semibold">{regra.valor}</span>
+                        </div>
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Nenhuma regra configurada para esta liga.</p>
+                  )}
+                </Field>
 
-                    {selectedAcoes.length > 0 && (
-                      <div className="space-y-3">
-                        <h4 className="font-medium text-sm">
-                          Pontuação Definida
-                        </h4>
-
-                        {selectedAcoes.map((acaoId) => {
-                          const acao = acoesPontuacao.find(
-                            (a) => a.id === acaoId
-                          )!
-
-                          return (
-                            <div
-                              key={acaoId}
-                              className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
-                            >
-                              <Badge variant="secondary">
-                                {acao.nome}
-                              </Badge>
-
-                              <Input
-                                type="number"
-                                placeholder="Pontos"
-                                className="w-24"
-                                disabled={!isOwner}
-                                value={
-                                  regrasPontuacao[acaoId] || ''
-                                }
-                                onChange={(e) =>
-                                  handlePontuacaoChange(
-                                    acaoId,
-                                    parseFloat(e.target.value) || 0
-                                  )
-                                }
-                              />
-
-                              <span className="text-sm text-muted-foreground">
-                                pontos
-                              </span>
-                            </div>
-                          )
-                        })}
+                <Field>
+                  <FieldLabel>Adicionar Novas Regras</FieldLabel>
+                  <div className="grid gap-3">
+                    {acoesPontuacao.map((acao) => (
+                      <div key={acao.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <p className="font-medium text-sm">{acao.nome}</p>
+                          <p className="text-xs text-muted-foreground">{acao.descricao}</p>
+                        </div>
+                        {selectedAcoes.includes(acao.id) ? (
+                          <Button type="button" variant="outline" size="sm" onClick={() => handleRemoveAcao(acao.id)}>
+                            <X className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button type="button" variant="ghost" size="sm" onClick={() => handleAddAcao(acao.id)}>
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                    )}
+                    ))}
                   </div>
                 </Field>
+
+                {selectedAcoes.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Valores das Regras</h4>
+                    {selectedAcoes.map((acaoId) => {
+                      const acao = acoesPontuacao.find((item) => item.id === acaoId)!
+                      return (
+                        <div key={acaoId} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                          <span className="font-medium">{acao.nome}</span>
+                          <Input
+                            type="number"
+                            className="w-24"
+                            value={regrasPontuacao[acaoId] ?? 0}
+                            onChange={(event) => handlePontuacaoChange(acaoId, parseFloat(event.target.value) || 0)}
+                          />
+                          <span className="text-sm text-muted-foreground">pontos</span>
+                        </div>
+                      )
+                    })}
+                    <Button onClick={handleSaveRules} disabled={!isOwner || isSaving}>
+                      {isSaving ? 'Salvando...' : 'Salvar Novas Regras'}
+                    </Button>
+                  </div>
+                )}
               </FieldGroup>
             </CardContent>
           </Card>

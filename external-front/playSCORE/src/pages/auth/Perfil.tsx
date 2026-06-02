@@ -312,17 +312,39 @@ export default function Perfil() {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0]
 
                             if (file) {
-                              const imageUrl =
-                                URL.createObjectURL(file)
+                              try {
+                                // Mostrar preview temporário enquanto faz upload
+                                const tempPreview = URL.createObjectURL(file)
+                                setEditData({
+                                  ...editData,
+                                  logo: tempPreview,
+                                })
 
-                              setEditData({
-                                ...editData,
-                                logo: imageUrl,
-                              })
+                                // Fazer upload para servidor
+                                const formData = new FormData()
+                                formData.append('file', file)
+                                const uploadResponse = await api.uploadFile(formData)
+                                
+                                // Atualizar com URL persistente do servidor
+                                setEditData({
+                                  ...editData,
+                                  logo: uploadResponse.url,
+                                })
+                                
+                                // Limpar preview blob
+                                URL.revokeObjectURL(tempPreview)
+                              } catch (error) {
+                                console.error('Erro ao fazer upload da logo:', error)
+                                toast({
+                                  title: 'Erro no upload',
+                                  description: 'Não foi possível fazer upload da imagem.',
+                                  variant: 'destructive'
+                                })
+                              }
                             }
                           }}
                         />

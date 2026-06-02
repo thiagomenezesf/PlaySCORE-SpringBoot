@@ -31,4 +31,10 @@ public class Campeonato {
     @ManyToOne
     @JoinColumn(name = "usuario_id")
     private Usuario criador;
+
+    @Transient
+    private Integer totalClubes;
+
+    @Transient
+    private Integer totalAtletas;
 }

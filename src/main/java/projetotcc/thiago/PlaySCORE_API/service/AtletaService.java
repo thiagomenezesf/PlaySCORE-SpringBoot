@@ -42,4 +42,23 @@ public class AtletaService {
         atleta.setClube(clube);
         return atletaRepository.save(atleta);
     }
+
+    public Atleta atualizar(Long id, AtletaRequest request) {
+        Atleta atleta = buscarPorId(id);
+        Clube clube = clubeRepository.findById(request.getIdClube())
+                .orElseThrow(() -> new ResourceNotFoundException("Clube", request.getIdClube()));
+
+        atleta.setNome(request.getNome());
+        atleta.setFoto(request.getFoto());
+        atleta.setPosicao(request.getPosicao());
+        atleta.setPrecoInicial(request.getPrecoInicial());
+        atleta.setPrecoAtual(request.getPrecoAtual());
+        atleta.setClube(clube);
+        return atletaRepository.save(atleta);
+    }
+
+    public void deletar(Long id) {
+        Atleta atleta = buscarPorId(id);
+        atletaRepository.delete(atleta);
+    }
 }

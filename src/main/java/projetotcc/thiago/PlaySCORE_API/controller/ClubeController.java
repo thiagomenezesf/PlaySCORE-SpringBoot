@@ -30,4 +30,14 @@ public class ClubeController {
     public Clube salvar(@Valid @RequestBody ClubeRequest request) {
         return clubeService.salvar(request);
     }
+
+    @PutMapping("/{id}")
+    public Clube atualizar(@PathVariable Long id, @Valid @RequestBody ClubeRequest request) {
+        return clubeService.atualizar(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        clubeService.deletar(id);
+    }
 }
