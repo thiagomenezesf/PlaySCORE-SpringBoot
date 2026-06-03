@@ -36,6 +36,10 @@ export default function LigaDetalhe() {
   const [tipoRanking, setTipoRanking] = useState<'geral' | 'rodada'>('geral')
   const [rodadaSelecionada, setRodadaSelecionada] = useState<number | 'todas'>('todas')
   const [isJoiningSubmit, setIsJoiningSubmit] = useState(false)
+  const [desempenhoAtletas, setDesempenhoAtletas] = useState<any[]>([])
+  const [atletas, setAtletas] = useState<any[]>([])
+  const [clubes, setClubes] = useState<any[]>([])
+  const [regrasPontuacaoLiga, setRegrasPontuacaoLiga] = useState<any[]>([])
 
   useEffect(() => {
     const loadData = async () => {
@@ -43,13 +47,17 @@ export default function LigaDetalhe() {
       setLoading(true)
 
       try {
-        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData] = await Promise.all([
+        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData, desempenhoAtletaData, atletasData, clubesData, regrasPontuacaoLigaData] = await Promise.all([
           api.getLiga(Number(id)),
           api.listCampeonatos(),
           api.listEquipeLiga(),
           api.listEquipesFantasy(),
           api.listDesempenhoEquipeFantasy(),
           api.listRodadas(),
+          api.listDesempenhoAtleta(),
+          api.listAtletas(),
+          api.listClubes(),
+          api.listRegraPontuacaoLiga(),
         ])
 
         setLeague(currentLeague)
@@ -58,6 +66,10 @@ export default function LigaDetalhe() {
         setEquipesFantasy(equipesFantasyData)
         setDesempenhoEquipeFantasy(desempenhoData)
         setRodadas(rodadasData)
+        setDesempenhoAtletas(desempenhoAtletaData)
+        setAtletas(atletasData)
+        setClubes(clubesData)
+        setRegrasPontuacaoLiga(regrasPontuacaoLigaData)
       } catch (error) {
         console.error('Erro ao carregar detalhes da liga', error)
       } finally {
@@ -83,13 +95,18 @@ export default function LigaDetalhe() {
     [equipesLiga, userTeam]
   )
 
+  const regrasDaLiga = useMemo(
+    () => regrasPontuacaoLiga.filter((regra) => regra.liga?.id === Number(id)),
+    [regrasPontuacaoLiga, id]
+  )
+
   console.log('user', user)
 
-console.log('userTeam', userTeam)
+  console.log('userTeam', userTeam)
 
-console.log('equipesLiga', equipesLiga)
+  console.log('equipesLiga', equipesLiga)
 
-console.log('userEntry', userEntry)
+  console.log('userEntry', userEntry)
 
   const isOwner = league?.idUsuarioCriador === user?.id
   const hasAccess = Boolean(userEntry)
@@ -110,13 +127,13 @@ console.log('userEntry', userEntry)
       .map((entry) => {
         const team = equipesFantasy.find((teamItem) => teamItem.id === entry.idEquipeFantasy)
         const pontuacaoTotal = desempenhoEquipeFantasy
-          .filter((desempenho) => desempenho.idLiga === league.id && desempenho.idEquipeFantasy === entry.idEquipeFantasy)
+          .filter((desempenho) => desempenho.liga?.id === league.id && desempenho.idEquipeFantasy === entry.idEquipeFantasy)
           .reduce((sum, desempenho) => sum + (desempenho.pontuacaoRodada || 0), 0)
         const pontuacaoRodada = desempenhoEquipeFantasy
           .filter((desempenho) =>
-            desempenho.idLiga === league.id &&
+            desempenho.liga?.id === league.id &&
             desempenho.idEquipeFantasy === entry.idEquipeFantasy &&
-            (rodadaIdSelecionada === null || desempenho.idRodada === rodadaIdSelecionada)
+            (rodadaIdSelecionada === null || desempenho.rodada?.id === rodadaIdSelecionada)
           )
           .reduce((sum, desempenho) => sum + (desempenho.pontuacaoRodada || 0), 0)
 
@@ -138,6 +155,38 @@ console.log('userEntry', userEntry)
         return b.pontuacaoTotal - a.pontuacaoTotal
       })
   }, [equipesLiga, equipesFantasy, desempenhoEquipeFantasy, league, tipoRanking, rodadaIdSelecionada])
+
+  const desempenhoAgrupado = useMemo(() => {
+    return Object.values(
+      desempenhoAtletas.reduce((acc: any, desempenho: any) => {
+
+        if (
+          tipoRanking === 'rodada' &&
+          rodadaSelecionada !== 'todas' &&
+          desempenho.rodada?.id !== rodadaIdSelecionada
+        ) {
+          return acc
+        }
+
+        const atletaId = desempenho.atleta?.id
+
+        if (!acc[atletaId]) {
+          acc[atletaId] = { ...desempenho }
+        } else {
+          acc[atletaId].gols += desempenho.gols || 0
+          acc[atletaId].assistencias += desempenho.assistencias || 0
+          acc[atletaId].finalizacoes += desempenho.finalizacoes || 0
+          acc[atletaId].driblesSimples += desempenho.driblesSimples || 0
+          acc[atletaId].caneta += desempenho.caneta || 0
+          acc[atletaId].cartoesAmarelos += desempenho.cartoesAmarelos || 0
+          acc[atletaId].cartoesVermelhos += desempenho.cartoesVermelhos || 0
+          acc[atletaId].pontosCalculados += desempenho.pontosCalculados || 0
+        }
+
+        return acc
+      }, {})
+    )
+  }, [desempenhoAtletas, tipoRanking, rodadaSelecionada, rodadaIdSelecionada])
 
   const topTeam = ranking[0]
   const rodadaAtual = rodadaOptions.length > 0 ? rodadaOptions[rodadaOptions.length - 1] : null
@@ -398,19 +447,260 @@ console.log('userEntry', userEntry)
           <Card>
             <CardHeader>
               <CardTitle>Regras da Liga</CardTitle>
-              <CardDescription>Veja o sistema de pontuação adotado nesta liga.</CardDescription>
+              <CardDescription>
+                Sistema de pontuação e configurações
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              {league.codigoAcesso ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Código de acesso: {league.codigoAcesso}</p>
-                  <p className="text-sm text-muted-foreground">As regras de pontuação são definidas pelo administrador da liga.</p>
+
+            <CardContent className="space-y-6">
+
+              {regrasDaLiga.length > 0 ? (
+                <div>
+                  <h3 className="font-semibold mb-3">
+                    Sistema de Pontuação
+                  </h3>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+
+                    {regrasDaLiga.map((regra) => {
+
+                      const acaoIcones: Record<string, string> = {
+                        GOLS: '⚽',
+                        ASSISTENCIAS: '🎯',
+                        CARTOES_AMARELOS: '🟨',
+                        CARTOES_VERMELHOS: '🟥',
+                        FINALIZACOES: '🔫',
+                        IMPEDIMENTOS: '⚠️',
+                        FALTAS_COMETIDAS: '🙅',
+                        FALTAS_RECEBIDAS: '👂',
+                        CANETAS: '🍌',
+                        CHAPEUS: '🎩',
+                        DRIBLES_SIMPLES: '🎪'
+                      }
+
+                      const acaoLabels: Record<string, string> = {
+                        GOLS: 'Gol',
+                        ASSISTENCIAS: 'Assistência',
+                        CARTOES_AMARELOS: 'Cartão amarelo',
+                        CARTOES_VERMELHOS: 'Cartão vermelho',
+                        FINALIZACOES: 'Finalização',
+                        IMPEDIMENTOS: 'Impedimento',
+                        FALTAS_COMETIDAS: 'Falta cometida',
+                        FALTAS_RECEBIDAS: 'Falta recebida',
+                        CANETAS: 'Caneta',
+                        CHAPEUS: 'Chapéu',
+                        DRIBLES_SIMPLES: 'Drible'
+                      }
+
+                      const isNegative = regra.valor < 0
+
+                      return (
+                        <div
+                          key={regra.id}
+                          className="p-3 bg-muted rounded flex justify-between items-center"
+                        >
+                          <span>
+                            {acaoIcones[regra.acao] || '•'}{' '}
+                            {acaoLabels[regra.acao] || regra.acao}
+                          </span>
+
+                          <span
+                            className={`font-bold ${isNegative
+                                ? 'text-red-400'
+                                : 'text-green-400'
+                              }`}
+                          >
+                            {isNegative ? '' : '+'}
+                            {regra.valor}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Nenhuma regra adicional disponível.</p>
+                <p className="text-muted-foreground">
+                  Nenhuma regra configurada para esta liga.
+                </p>
               )}
+
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="scouts">
+          <div className="space-y-6">
+
+            <div className="flex gap-2 items-center flex-wrap">
+              <Button
+                variant={tipoRanking === 'geral' ? 'default' : 'outline'}
+                onClick={() => setTipoRanking('geral')}
+              >
+                Geral
+              </Button>
+
+              <Button
+                variant={tipoRanking === 'rodada' ? 'default' : 'outline'}
+                onClick={() => setTipoRanking('rodada')}
+              >
+                Rodada
+              </Button>
+
+              {tipoRanking === 'rodada' && (
+                <Select
+                  value={rodadaSelecionada.toString()}
+                  onValueChange={(v) =>
+                    setRodadaSelecionada(v === 'todas' ? 'todas' : Number(v))
+                  }
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    <SelectItem value="todas">
+                      Todas
+                    </SelectItem>
+
+                    {rodadaOptions.map((rodada) => (
+                      <SelectItem
+                        key={rodada.id}
+                        value={rodada.numero.toString()}
+                      >
+                        Rodada {rodada.numero}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* ARTILHARIA */}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Artilharia</CardTitle>
+                <CardDescription>
+                  Gols marcados pelos atletas
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Atleta</TableHead>
+                      <TableHead>Clube</TableHead>
+                      <TableHead className="text-right">Gols</TableHead>
+                      <TableHead className="text-right">Assistências</TableHead>
+                      <TableHead className="text-right">Finalizações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {desempenhoAgrupado
+                      .sort((a: any, b: any) => b.gols - a.gols)
+                      .map((desempenho: any) => {
+
+                        const atleta = atletas.find(
+                          a => a.id === desempenho.idAtleta
+                        )
+
+                        const clube = clubes.find(
+                          c => c.id === atleta?.idClube
+                        )
+
+                        return (
+                          <TableRow key={desempenho.idAtleta}>
+                            <TableCell>{atleta?.nome}</TableCell>
+                            <TableCell>{clube?.nome}</TableCell>
+                            <TableCell className="text-right font-bold text-primary">
+                              {desempenho.gols}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.assistencias}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.finalizacoes}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* ESTATÍSTICAS COMPLETAS */}
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Estatísticas Completas</CardTitle>
+                <CardDescription>
+                  Desempenho geral dos atletas
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Atleta</TableHead>
+                      <TableHead className="text-right">Gols</TableHead>
+                      <TableHead className="text-right">Assist</TableHead>
+                      <TableHead className="text-right">Dribles</TableHead>
+                      <TableHead className="text-right">Canetas</TableHead>
+                      <TableHead className="text-right">Cartões</TableHead>
+                      <TableHead className="text-right">Pontos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+
+                  <TableBody>
+                    {desempenhoAgrupado
+                      .sort(
+                        (a: any, b: any) =>
+                          b.pontosCalculados - a.pontosCalculados
+                      )
+                      .map((desempenho: any) => {
+
+                        const atleta = atletas.find(
+                          a => a.id === desempenho.idAtleta
+                        )
+
+                        const cartoes =
+                          (desempenho.cartoesAmarelos || 0) +
+                          (desempenho.cartoesVermelhos || 0)
+
+                        return (
+                          <TableRow key={desempenho.idAtleta}>
+                            <TableCell>{atleta?.nome}</TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.gols}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.assistencias}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.driblesSimples}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {desempenho.caneta}
+                            </TableCell>
+                            <TableCell className="text-right text-red-400">
+                              {cartoes}
+                            </TableCell>
+                            <TableCell className="text-right font-bold text-primary">
+                              {desempenho.pontosCalculados}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+          </div>
         </TabsContent>
       </Tabs>
     </div>

@@ -39,4 +39,31 @@ public class RegraPontuacaoLigaService {
         regra.setLiga(liga);
         return regraRepository.save(regra);
     }
+
+    public RegraPontuacaoLiga atualizar(RegraPontuacaoLiga regraAtualizada) {
+
+        RegraPontuacaoLiga regraExistente = regraRepository.findById(regraAtualizada.getId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RegraPontuacaoLiga",
+                        regraAtualizada.getId()));
+
+        regraExistente.setAcao(regraAtualizada.getAcao());
+        regraExistente.setValor(regraAtualizada.getValor());
+
+        if (regraAtualizada.getLiga() != null) {
+            regraExistente.setLiga(regraAtualizada.getLiga());
+        }
+
+        return regraRepository.save(regraExistente);
+    }
+
+    public void deletar(Long id) {
+
+        RegraPontuacaoLiga regra = regraRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "RegraPontuacaoLiga",
+                        id));
+
+        regraRepository.delete(regra);
+    }
 }

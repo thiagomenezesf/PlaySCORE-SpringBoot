@@ -30,4 +30,18 @@ public class RegraPontuacaoLigaController {
     public RegraPontuacaoLiga salvar(@Valid @RequestBody RegraPontuacaoLigaRequest request) {
         return regraService.salvar(request);
     }
+
+    @PutMapping("/{id}")
+    public RegraPontuacaoLiga atualizar(
+            @PathVariable Long id,
+            @RequestBody RegraPontuacaoLiga regra) {
+
+        regra.setId(id);
+        return regraService.atualizar(regra);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        regraService.deletar(id);
+    }
 }

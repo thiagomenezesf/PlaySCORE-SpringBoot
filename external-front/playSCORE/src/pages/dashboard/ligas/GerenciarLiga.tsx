@@ -20,7 +20,7 @@ export default function GerenciarLigaPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { user } = useAuth()
-  const [liga, setLiga] = useState<Liga | null>(null)
+  const [liga, setLiga] = useState<any>(null)
   const [campeonatos, setCampeonatos] = useState<Campeonato[]>([])
   const [equipeLiga, setEquipeLiga] = useState<any[]>([])
   const [regras, setRegras] = useState<any[]>([])
@@ -59,11 +59,11 @@ export default function GerenciarLigaPage() {
             nome: currentLiga.nome,
             descricao: currentLiga.descricao || '',
             idCampeonato: String(currentLiga.idCampeonato),
-            maxParticipantes: String(currentLiga.maxParticipantes || 20),
+            maxParticipantes: String(currentLiga.maximoParticipantes || 20),
             codigoAcesso: currentLiga.codigoAcesso,
           })
 
-          const leagueRules = regrasData.filter((regra: any) => regra.idLiga === currentLiga.id)
+          const leagueRules = regrasData.filter((regra: any) => regra.liga?.id === currentLiga.id)
           setRegras(leagueRules)
           setSelectedAcoes(leagueRules.map((regra: any) => regra.acao))
           setRegrasPontuacao(
@@ -86,23 +86,41 @@ export default function GerenciarLigaPage() {
     loadData()
   }, [id])
 
-  const isOwner = user?.id != null && liga?.idUsuarioCriador === user.id
+  const isOwner = user?.id != null && liga?.criador?.id === user.id
   const participantes = equipeLiga.length
   const campeonato = campeonatos.find((camp) => camp.id === Number(formData.idCampeonato))
 
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
+    console.log("ENTROU NO HANDLE SAVE")
+
+    event.preventDefault()
+
+    console.log("isOwner:", isOwner)
+    console.log("liga:", liga)
+
     if (!isOwner || !liga) return
+
+    console.log("PASSOU NO IF")
     setIsSaving(true)
 
     try {
-      const updated = await api.updateLiga(liga.id, {
+      console.log('DADOS ENVIADOS:', {
         nome: formData.nome,
         descricao: formData.descricao,
         idCampeonato: Number(formData.idCampeonato),
         maxParticipantes: Number(formData.maxParticipantes),
         codigoAcesso: formData.codigoAcesso,
-        idUsuarioCriador: liga.idUsuarioCriador,
+        idUsuarioCriador: liga.criador?.id,
+      })
+
+      const updated = await api.updateLiga(liga.id, {
+        nome: formData.nome,
+        descricao: formData.descricao,
+        idCampeonato: Number(formData.idCampeonato),
+        maximoParticipantes: Number(formData.maxParticipantes),
+        codigoAcesso: formData.codigoAcesso,
+        idUsuarioCriador: user.id,
       })
 
       setLiga(updated)
@@ -110,7 +128,7 @@ export default function GerenciarLigaPage() {
         nome: updated.nome,
         descricao: updated.descricao || '',
         idCampeonato: String(updated.idCampeonato),
-        maxParticipantes: String(updated.maxParticipantes || 20),
+        maxParticipantes: String(updated.maximoParticipantes || 20),
         codigoAcesso: updated.codigoAcesso,
       })
       alert('Liga atualizada com sucesso.')
@@ -125,35 +143,61 @@ export default function GerenciarLigaPage() {
   const handleSaveRules = async () => {
     if (!isOwner || !liga) return
 
-    const existingAcoes = new Set(regras.map((regra) => regra.acao))
-    const rulesToCreate = selectedAcoes.filter((acao) => !existingAcoes.has(acao))
-
-    if (rulesToCreate.length === 0) {
-      alert('Nenhuma regra nova para adicionar.')
-      return
-    }
-
     setIsSaving(true)
+
     try {
-      await Promise.all(
-        rulesToCreate.map((acao) =>
-          api.createRegraPontuacaoLiga({
+
+      for (const acao of selectedAcoes) {
+
+        const regraExistente = regras.find(
+          (r) => r.acao === acao
+        )
+
+        if (regraExistente) {
+
+          await api.updateRegraPontuacaoLiga(
+            regraExistente.id,
+            {
+              id: regraExistente.id,
+              acao,
+              valor: Number(regrasPontuacao[acao] || 0),
+              liga: {
+                id: liga.id
+              }
+            }
+          )
+
+        } else {
+
+          await api.createRegraPontuacaoLiga({
             acao,
             valor: Number(regrasPontuacao[acao] || 0),
-            idLiga: liga.id,
+            idLiga: liga.id
           })
-        )
-      )
+
+        }
+      }
 
       const allRules = await api.listRegraPontuacaoLiga()
-      const leagueRules = allRules.filter((regra: any) => regra.idLiga === liga.id)
+
+      const leagueRules = allRules.filter(
+        (regra: any) => regra.liga?.id === liga.id
+      )
+
       setRegras(leagueRules)
+
       alert('Regras atualizadas com sucesso.')
+
     } catch (error) {
+
       console.error('Erro ao salvar regras', error)
+
       alert('Não foi possível salvar as regras.')
+
     } finally {
+
       setIsSaving(false)
+
     }
   }
 
@@ -189,11 +233,46 @@ export default function GerenciarLigaPage() {
     }
   }
 
-  const handleRemoveAcao = (acaoId: string) => {
-    setSelectedAcoes(selectedAcoes.filter((acao) => acao !== acaoId))
-    const newRegras = { ...regrasPontuacao }
-    delete newRegras[acaoId]
-    setRegrasPontuacao(newRegras)
+  const handleRemoveAcao = async (acaoId: string) => {
+
+    const regraExistente = regras.find(
+      r => r.acao === acaoId
+    )
+
+    if (regraExistente) {
+
+      try {
+
+        await api.deleteRegraPontuacaoLiga(
+          regraExistente.id
+        )
+
+        setRegras(
+          regras.filter(
+            r => r.id !== regraExistente.id
+          )
+        )
+
+      } catch (error) {
+
+        console.error(error)
+        alert('Erro ao remover regra')
+
+        return
+      }
+    }
+
+    setSelectedAcoes(
+      selectedAcoes.filter(
+        acao => acao !== acaoId
+      )
+    )
+
+    const novasRegras = { ...regrasPontuacao }
+
+    delete novasRegras[acaoId]
+
+    setRegrasPontuacao(novasRegras)
   }
 
   const handlePontuacaoChange = (acaoId: string, pontos: number) => {
@@ -221,7 +300,11 @@ export default function GerenciarLigaPage() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'info' | 'regras')}
+        className="space-y-6"
+      >
         <TabsList>
           <TabsTrigger value="info">Informações</TabsTrigger>
           <TabsTrigger value="regras">Regras</TabsTrigger>
@@ -427,9 +510,10 @@ export default function GerenciarLigaPage() {
                           <span className="font-medium">{acao.nome}</span>
                           <Input
                             type="number"
+                            placeholder="Pontos"
                             className="w-24"
-                            value={regrasPontuacao[acaoId] ?? 0}
-                            onChange={(event) => handlePontuacaoChange(acaoId, parseFloat(event.target.value) || 0)}
+                            value={regrasPontuacao[acaoId] || ''}
+                            onChange={(e) => handlePontuacaoChange(acaoId, parseFloat(e.target.value) || 0)}
                           />
                           <span className="text-sm text-muted-foreground">pontos</span>
                         </div>
