@@ -1,6 +1,8 @@
 package projetotcc.thiago.PlaySCORE_API.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import projetotcc.thiago.PlaySCORE_API.dto.LigaRequest;
@@ -9,12 +11,16 @@ import projetotcc.thiago.PlaySCORE_API.model.Campeonato;
 import projetotcc.thiago.PlaySCORE_API.model.Liga;
 import projetotcc.thiago.PlaySCORE_API.model.Usuario;
 import projetotcc.thiago.PlaySCORE_API.repository.CampeonatoRepository;
+import projetotcc.thiago.PlaySCORE_API.repository.EquipeFantasyRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.EquipeLigaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.LigaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.RegraPontuacaoLigaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.UsuarioRepository;
+import projetotcc.thiago.PlaySCORE_API.model.EquipeFantasy;
+import projetotcc.thiago.PlaySCORE_API.model.EquipeLiga;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class LigaService {
@@ -33,6 +39,9 @@ public class LigaService {
 
     @Autowired
     private EquipeLigaRepository equipeLigaRepository;
+
+    @Autowired
+    private EquipeFantasyRepository equipeFantasyRepository;
 
     public List<Liga> listarTodos() {
         return ligaRepository.findAll();
@@ -58,7 +67,22 @@ public class LigaService {
         liga.setDescricao(request.getDescricao());
         liga.setCampeonato(campeonato);
         liga.setCriador(criador);
-        return ligaRepository.save(liga);
+        liga = ligaRepository.save(liga);
+
+        EquipeFantasy equipeFantasy = equipeFantasyRepository
+                .findByCriador(criador)
+                .orElseThrow(() -> new RuntimeException(
+                        "Usuário precisa possuir uma equipe fantasy para criar uma liga"
+                ));
+
+        EquipeLiga equipeLiga = new EquipeLiga();
+        equipeLiga.setLiga(liga);
+        equipeLiga.setEquipeFantasy(equipeFantasy);
+        equipeLiga.setPatrimonio(equipeFantasy.getPatrimonio());
+
+        equipeLigaRepository.save(equipeLiga);
+
+        return liga;
     }
 
     public Liga atualizar(Long id, LigaRequest request) {

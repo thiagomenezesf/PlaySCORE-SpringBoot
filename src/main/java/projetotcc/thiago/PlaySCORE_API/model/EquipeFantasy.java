@@ -27,7 +27,7 @@ public class EquipeFantasy {
 
     private Double pontuacaoTotal = 0.0;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "usuario_id", nullable = false)
     private Usuario criador;
 

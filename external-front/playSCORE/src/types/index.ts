@@ -108,7 +108,7 @@ export interface EquipeFantasy {
   id: number
   nome: string
   logo?: string
-  idUsuario: number // FK para Usuario.id
+  Idcriador: Usuario // FK para Usuario.id
   patrimonio: number
   titulos: number
   pontuacaoTotal?: number

@@ -132,7 +132,7 @@ export const api = {
     const data = await request('/equipe-liga');
     return Array.isArray(data) ? data.map(normalizeEquipeLiga) : [];
   },
-  createEquipeLiga: (body: any) => request('/equipe-liga', { method: 'POST', body: JSON.stringify(body) }),
+  createEquipeLiga: async(body: any) => normalizeEquipeLiga(await request('/equipe-liga', { method: 'POST', body: JSON.stringify(body) })),
   createRegraPontuacaoLiga: (body: any) => request('/regras-pontuacao-liga', { method: 'POST', body: JSON.stringify(body) }),
 };
 

@@ -59,7 +59,7 @@ export default function LigasPage() {
   const userFantasyTeamIds = useMemo(
     () =>
       user
-        ? equipesFantasy.filter((equipe) => equipe.idUsuario === user.id).map((equipe) => equipe.id)
+        ? equipesFantasy.filter((equipe) => equipe.criador?.id === user.id).map((equipe) => equipe.id)
         : [],
     [user, equipesFantasy]
   )

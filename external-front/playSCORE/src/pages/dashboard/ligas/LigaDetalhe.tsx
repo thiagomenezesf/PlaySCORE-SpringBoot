@@ -74,7 +74,7 @@ export default function LigaDetalhe() {
   )
 
   const userTeam = useMemo(
-    () => equipesFantasy.find((team) => team.idUsuario === user?.id),
+    () => equipesFantasy.find((team) => team.criador?.id === user?.id),
     [equipesFantasy, user]
   )
 
@@ -82,6 +82,14 @@ export default function LigaDetalhe() {
     () => userTeam && equipesLiga.find((entry) => entry.idEquipeFantasy === userTeam.id),
     [equipesLiga, userTeam]
   )
+
+  console.log('user', user)
+
+console.log('userTeam', userTeam)
+
+console.log('equipesLiga', equipesLiga)
+
+console.log('userEntry', userEntry)
 
   const isOwner = league?.idUsuarioCriador === user?.id
   const hasAccess = Boolean(userEntry)
@@ -116,7 +124,8 @@ export default function LigaDetalhe() {
           ...entry,
           nomeEquipe: team?.nome || 'Equipe sem nome',
           logoEquipe: team?.logo || '',
-          usuarioId: team?.idUsuario,
+          usuarioId: team?.criador?.id,
+          nomeUsuario: team?.criador?.nome || 'Usuário desconhecido',
           pontuacaoTotal,
           pontuacaoRodada,
           patrimonio: Number(entry.patrimonio || 0),
@@ -199,7 +208,7 @@ export default function LigaDetalhe() {
               {league.descricao || 'Visualize os detalhes da liga antes de entrar.'}
             </p>
             <p className="text-lg font-bold text-muted-foreground mt-2">
-              Participantes: {equipesLiga.length}/{league.maxParticipantes}
+              Participantes: {equipesLiga.length}/{league.maximoParticipantes}
             </p>
           </div>
         </div>
@@ -270,6 +279,7 @@ export default function LigaDetalhe() {
         <TabsList>
           <TabsTrigger value="classificacao">Classificação</TabsTrigger>
           <TabsTrigger value="regras">Regras</TabsTrigger>
+          <TabsTrigger value="scouts">Scouts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="classificacao">
@@ -371,7 +381,7 @@ export default function LigaDetalhe() {
                         </Avatar>
                       </TableCell>
                       <TableCell className="font-bold">{item.nomeEquipe}</TableCell>
-                      <TableCell>{item.usuarioId === user?.id ? 'Você' : 'Competidor'}</TableCell>
+                      <TableCell>{item.usuarioId === user?.id ? `${item.nomeUsuario} (Você)` : item.nomeUsuario}</TableCell>
                       <TableCell className="text-right font-bold text-primary">
                         {tipoRanking === 'geral' ? item.pontuacaoTotal : item.pontuacaoRodada}
                       </TableCell>

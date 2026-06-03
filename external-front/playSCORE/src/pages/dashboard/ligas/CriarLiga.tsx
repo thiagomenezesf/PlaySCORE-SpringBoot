@@ -23,6 +23,7 @@ export default function CriarLigaPage() {
     nome: '',
     descricao: '',
     idCampeonato: '',
+    codigoAcesso: '',
     maxParticipantes: '20',
   })
   const [logoFile, setLogoFile] = useState<File | null>(null)
@@ -49,8 +50,8 @@ export default function CriarLigaPage() {
       return
     }
 
-    if (!formData.nome.trim() || !formData.idCampeonato) {
-      alert('Preencha o nome e selecione um campeonato.')
+    if (!formData.nome.trim() || !formData.idCampeonato || !formData.codigoAcesso.trim()) {
+      alert('Preencha o nome, selecione um campeonato e defina um Código de Acesso para a liga.')
       return
     }
 
@@ -70,7 +71,7 @@ export default function CriarLigaPage() {
         descricao: formData.descricao,
         idCampeonato: Number(formData.idCampeonato),
         maximoParticipantes: Number(formData.maxParticipantes),
-        codigoAcesso: generateAccessCode(),
+        codigoAcesso: formData.codigoAcesso,
         idUsuarioCriador: user.id,
         logo: logoUrl,
       })
@@ -211,6 +212,17 @@ export default function CriarLigaPage() {
                   max="100"
                   value={formData.maxParticipantes}
                   onChange={(e) => setFormData({ ...formData, maxParticipantes: e.target.value })}
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="codigoAcesso">Código de Acesso *</FieldLabel>
+                <Input
+                  id="codigoAcesso"
+                  placeholder="Ex: ABC123"
+                  value={formData.codigoAcesso}
+                  onChange={(e) => setFormData({ ...formData, codigoAcesso: e.target.value })}
+                  required
                 />
               </Field>
 
