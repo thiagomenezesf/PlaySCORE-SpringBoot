@@ -37,8 +37,6 @@ export default function LigaDetalhe() {
   const [rodadaSelecionada, setRodadaSelecionada] = useState<number | 'todas'>('todas')
   const [isJoiningSubmit, setIsJoiningSubmit] = useState(false)
   const [desempenhoAtletas, setDesempenhoAtletas] = useState<any[]>([])
-  const [atletas, setAtletas] = useState<any[]>([])
-  const [clubes, setClubes] = useState<any[]>([])
   const [regrasPontuacaoLiga, setRegrasPontuacaoLiga] = useState<any[]>([])
 
   useEffect(() => {
@@ -47,7 +45,7 @@ export default function LigaDetalhe() {
       setLoading(true)
 
       try {
-        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData, desempenhoAtletaData, atletasData, clubesData, regrasPontuacaoLigaData] = await Promise.all([
+        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData, desempenhoAtletaData, regrasPontuacaoLigaData] = await Promise.all([
           api.getLiga(Number(id)),
           api.listCampeonatos(),
           api.listEquipeLiga(),
@@ -55,8 +53,6 @@ export default function LigaDetalhe() {
           api.listDesempenhoEquipeFantasy(),
           api.listRodadas(),
           api.listDesempenhoAtleta(),
-          api.listAtletas(),
-          api.listClubes(),
           api.listRegraPontuacaoLiga(),
         ])
 
@@ -67,8 +63,6 @@ export default function LigaDetalhe() {
         setDesempenhoEquipeFantasy(desempenhoData)
         setRodadas(rodadasData)
         setDesempenhoAtletas(desempenhoAtletaData)
-        setAtletas(atletasData)
-        setClubes(clubesData)
         setRegrasPontuacaoLiga(regrasPontuacaoLigaData)
       } catch (error) {
         console.error('Erro ao carregar detalhes da liga', error)
@@ -112,7 +106,7 @@ export default function LigaDetalhe() {
   const hasAccess = Boolean(userEntry)
 
   const rodadaOptions = useMemo(
-    () => rodadas.filter((rodada) => rodada.idCampeonato === league?.idCampeonato),
+    () => rodadas.filter((rodada) => rodada.campeonato?.id === league?.idCampeonato),
     [rodadas, league]
   )
 
@@ -126,16 +120,20 @@ export default function LigaDetalhe() {
     return equipesLiga
       .map((entry) => {
         const team = equipesFantasy.find((teamItem) => teamItem.id === entry.idEquipeFantasy)
-        const pontuacaoTotal = desempenhoEquipeFantasy
-          .filter((desempenho) => desempenho.liga?.id === league.id && desempenho.idEquipeFantasy === entry.idEquipeFantasy)
-          .reduce((sum, desempenho) => sum + (desempenho.pontuacaoRodada || 0), 0)
-        const pontuacaoRodada = desempenhoEquipeFantasy
-          .filter((desempenho) =>
-            desempenho.liga?.id === league.id &&
-            desempenho.idEquipeFantasy === entry.idEquipeFantasy &&
-            (rodadaIdSelecionada === null || desempenho.rodada?.id === rodadaIdSelecionada)
-          )
-          .reduce((sum, desempenho) => sum + (desempenho.pontuacaoRodada || 0), 0)
+        const pontuacaoRodada =
+          rodadaSelecionada === 'todas'
+            ? Number(entry.pontuacaoTotal || 0)
+            : desempenhoEquipeFantasy
+              .filter(
+                (desempenho) =>
+                  desempenho.equipeLiga?.id === entry.id &&
+                  desempenho.rodada?.id === rodadaIdSelecionada
+              )
+              .reduce(
+                (sum, desempenho) =>
+                  sum + (desempenho.pontuacaoRodada || 0),
+                0
+              )
 
         return {
           ...entry,
@@ -143,7 +141,7 @@ export default function LigaDetalhe() {
           logoEquipe: team?.logo || '',
           usuarioId: team?.criador?.id,
           nomeUsuario: team?.criador?.nome || 'Usuário desconhecido',
-          pontuacaoTotal,
+          pontuacaoTotal: Number(entry.pontuacaoTotal || 0),
           pontuacaoRodada,
           patrimonio: Number(entry.patrimonio || 0),
         }
@@ -154,7 +152,7 @@ export default function LigaDetalhe() {
         }
         return b.pontuacaoTotal - a.pontuacaoTotal
       })
-  }, [equipesLiga, equipesFantasy, desempenhoEquipeFantasy, league, tipoRanking, rodadaIdSelecionada])
+  }, [equipesLiga, equipesFantasy, desempenhoEquipeFantasy, tipoRanking, rodadaIdSelecionada])
 
   const desempenhoAgrupado = useMemo(() => {
     return Object.values(
@@ -506,8 +504,8 @@ export default function LigaDetalhe() {
 
                           <span
                             className={`font-bold ${isNegative
-                                ? 'text-red-400'
-                                : 'text-green-400'
+                              ? 'text-red-400'
+                              : 'text-green-400'
                               }`}
                           >
                             {isNegative ? '' : '+'}
@@ -601,19 +599,10 @@ export default function LigaDetalhe() {
                     {desempenhoAgrupado
                       .sort((a: any, b: any) => b.gols - a.gols)
                       .map((desempenho: any) => {
-
-                        const atleta = atletas.find(
-                          a => a.id === desempenho.idAtleta
-                        )
-
-                        const clube = clubes.find(
-                          c => c.id === atleta?.idClube
-                        )
-
                         return (
-                          <TableRow key={desempenho.idAtleta}>
-                            <TableCell>{atleta?.nome}</TableCell>
-                            <TableCell>{clube?.nome}</TableCell>
+                          <TableRow key={desempenho.atleta?.id}>
+                            <TableCell>{desempenho.atleta?.nome}</TableCell>
+                            <TableCell>{desempenho.atleta?.clube?.nome}</TableCell>
                             <TableCell className="text-right font-bold text-primary">
                               {desempenho.gols}
                             </TableCell>
@@ -662,18 +651,13 @@ export default function LigaDetalhe() {
                           b.pontosCalculados - a.pontosCalculados
                       )
                       .map((desempenho: any) => {
-
-                        const atleta = atletas.find(
-                          a => a.id === desempenho.idAtleta
-                        )
-
                         const cartoes =
                           (desempenho.cartoesAmarelos || 0) +
                           (desempenho.cartoesVermelhos || 0)
 
                         return (
-                          <TableRow key={desempenho.idAtleta}>
-                            <TableCell>{atleta?.nome}</TableCell>
+                          <TableRow key={desempenho.atleta?.id}>
+                            <TableCell>{desempenho.atleta?.nome}</TableCell>
                             <TableCell className="text-right">
                               {desempenho.gols}
                             </TableCell>
