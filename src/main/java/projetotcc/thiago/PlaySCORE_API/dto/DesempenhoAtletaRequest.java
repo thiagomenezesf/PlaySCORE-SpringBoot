@@ -23,6 +23,4 @@ public class DesempenhoAtletaRequest {
     private Integer chapeus = 0;
     private Integer driblesSimples = 0;
 
-    private Double pontosCalculados = 0.0;
-    private Double valorAtualizado = 0.0;
 }

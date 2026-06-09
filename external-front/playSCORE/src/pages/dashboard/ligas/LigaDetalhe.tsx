@@ -45,7 +45,7 @@ export default function LigaDetalhe() {
       setLoading(true)
 
       try {
-        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData, desempenhoAtletaData, regrasPontuacaoLigaData] = await Promise.all([
+        const [currentLeague, campeonatosData, equipeLigaData, equipesFantasyData, desempenhoData, rodadasData, desempenhoAtletaData, desempenhoAtletaLigaData, regrasPontuacaoLigaData] = await Promise.all([
           api.getLiga(Number(id)),
           api.listCampeonatos(),
           api.listEquipeLiga(),
@@ -53,6 +53,7 @@ export default function LigaDetalhe() {
           api.listDesempenhoEquipeFantasy(),
           api.listRodadas(),
           api.listDesempenhoAtleta(),
+          api.listDesempenhoAtletaLiga(),
           api.listRegraPontuacaoLiga(),
         ])
 
@@ -62,7 +63,29 @@ export default function LigaDetalhe() {
         setEquipesFantasy(equipesFantasyData)
         setDesempenhoEquipeFantasy(desempenhoData)
         setRodadas(rodadasData)
-        setDesempenhoAtletas(desempenhoAtletaData)
+
+        const desempenhoLigaMap = new Map<number, any>()
+        ;(desempenhoAtletaLigaData || []).forEach((item: any) => {
+          const desempenhoAtletaId = item.desempenhoAtleta?.id
+          if (desempenhoAtletaId != null) {
+            desempenhoLigaMap.set(desempenhoAtletaId, item)
+          }
+        })
+
+        setDesempenhoAtletas(
+          (desempenhoAtletaData || []).map((raw: any) => {
+            const ligaItem = desempenhoLigaMap.get(raw.id)
+            return {
+              ...raw,
+              pontosCalculados: ligaItem?.pontosCalculados ?? 0,
+              valorAnterior: ligaItem?.valorAnterior ?? 0,
+              valorAtual: ligaItem?.valorAtual ?? 0,
+              valorAtualizado: ligaItem?.valorAtualizado ?? 0,
+              rodada: raw.rodada || ligaItem?.rodada,
+              atleta: raw.atleta || ligaItem?.desempenhoAtleta?.atleta,
+            }
+          })
+        )
         setRegrasPontuacaoLiga(regrasPontuacaoLigaData)
       } catch (error) {
         console.error('Erro ao carregar detalhes da liga', error)
@@ -157,6 +180,9 @@ export default function LigaDetalhe() {
   const desempenhoAgrupado = useMemo(() => {
     return Object.values(
       desempenhoAtletas.reduce((acc: any, desempenho: any) => {
+        if (!desempenho?.atleta?.id) {
+          return acc
+        }
 
         if (
           tipoRanking === 'rodada' &&
@@ -166,10 +192,22 @@ export default function LigaDetalhe() {
           return acc
         }
 
-        const atletaId = desempenho.atleta?.id
-
+        const atletaId = desempenho.atleta.id
         if (!acc[atletaId]) {
-          acc[atletaId] = { ...desempenho }
+          acc[atletaId] = {
+            id: atletaId,
+            atleta: desempenho.atleta,
+            gols: desempenho.gols || 0,
+            assistencias: desempenho.assistencias || 0,
+            finalizacoes: desempenho.finalizacoes || 0,
+            driblesSimples: desempenho.driblesSimples || 0,
+            caneta: desempenho.caneta || 0,
+            cartoesAmarelos: desempenho.cartoesAmarelos || 0,
+            cartoesVermelhos: desempenho.cartoesVermelhos || 0,
+            pontosCalculados: desempenho.pontosCalculados || 0,
+            valorAtualizado: desempenho.valorAtualizado || 0,
+            rodada: desempenho.rodada,
+          }
         } else {
           acc[atletaId].gols += desempenho.gols || 0
           acc[atletaId].assistencias += desempenho.assistencias || 0
@@ -187,7 +225,6 @@ export default function LigaDetalhe() {
   }, [desempenhoAtletas, tipoRanking, rodadaSelecionada, rodadaIdSelecionada])
 
   const topTeam = ranking[0]
-  const rodadaAtual = rodadaOptions.length > 0 ? rodadaOptions[rodadaOptions.length - 1] : null
 
   const handleCopyCode = () => {
     if (!league?.codigoAcesso) return

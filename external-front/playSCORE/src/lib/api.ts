@@ -85,6 +85,7 @@ export const api = {
 
   // Rodada fechar
   fecharRodada: (id: number) => request(`/rodadas/${id}/fechar`, { method: 'POST' }),
+  abrirRodada: (id: number) => request(`/rodadas/${id}/abrir`, { method: 'POST' }),
   // Atletas / Clubes / Rodadas / Desempenhos / Ligas / Equipes
   listAtletas: async () => {
     const data = await request('/atletas');
@@ -110,7 +111,14 @@ export const api = {
   createUsuario: (body: any) => request('/usuarios', { method: 'POST', body: JSON.stringify(body) }),
   listRodadas: () => request('/rodadas'),
   listCampeonatoRodadas: () => request('/campeonato-rodadas'),
+  getCampeonatoRodadaAtual: (idCampeonato: number) => request(`/campeonato-rodadas/campeonato/${idCampeonato}`),
+  avancarCampeonatoRodada: (idCampeonato: number) => request(`/campeonato-rodadas/campeonato/${idCampeonato}/avancar`, { method: 'POST' }),
   listDesempenhoAtleta: () => request('/desempenho-atleta'),
+  createDesempenhoAtleta: (body: any) => request('/desempenho-atleta', { method: 'POST', body: JSON.stringify(body) }),
+  createDesempenhoAtletaBatch: (body: any) => request('/desempenho-atleta/batch', { method: 'POST', body: JSON.stringify(body) }),
+  listDesempenhoAtletaLiga: () => request('/desempenho-atleta-liga'),
+  getDesempenhoAtletaLiga: (id: number) => request(`/desempenho-atleta-liga/${id}`),
+  createDesempenhoAtletaLiga: (body: any) => request('/desempenho-atleta-liga', { method: 'POST', body: JSON.stringify(body) }),
   listDesempenhoEquipeFantasy: () => request('/desempenho-equipe-fantasy'),
   listRegraPontuacaoLiga: async () => {
     const data = await request('/regras-pontuacao-liga');

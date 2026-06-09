@@ -116,6 +116,123 @@ export default function GerenciarCampeonatoPage() {
     foto: '',
     fotoFile: null,
   })
+  const [campeonatoRodada, setCampeonatoRodada] = useState<any | null>(null)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [desempenhoInputs, setDesempenhoInputs] = useState<Record<
+    number,
+    {
+      gols: number
+      assistencias: number
+      cartoesAmarelos: number
+      cartoesVermelhos: number
+      finalizacoes: number
+      impedimentos: number
+      faltasCometidas: number
+      faltasRecebidas: number
+      canetas: number
+      chapeus: number
+      driblesSimples: number
+    }
+  >>({})
+
+  useEffect(() => {
+    const loadCurrentRodada = async () => {
+      if (!campeonato) return
+      try {
+        const rodadaAtual = await api.getCampeonatoRodadaAtual(campeonato.id)
+        setCampeonatoRodada(rodadaAtual)
+      } catch (error) {
+        console.error('Erro ao carregar rodada atual', error)
+      }
+    }
+
+    loadCurrentRodada()
+  }, [campeonato])
+
+  const carregarDesempenhos = async () => {
+    if (!campeonatoRodada?.rodada?.id) return
+
+    try {
+      const data = await api.listDesempenhoAtleta()
+      const rodadaDesempenhos = Array.isArray(data)
+        ? data.filter((item: any) => (item.idRodada ?? item.rodada?.id) === campeonatoRodada.rodada.id)
+        : []
+
+      const clubesDoCampeonato = clubes.filter((clube) => clube.idCampeonato === campeonato?.id)
+      const atletasDoCampeonato = atletas.filter((atleta) =>
+        clubesDoCampeonato.some((clube) => clube.id === atleta.idClube),
+      )
+
+      const inputs = atletasDoCampeonato.reduce((acc, atleta) => {
+        const existing = rodadaDesempenhos.find((desempenho: any) =>
+          (desempenho.idAtleta ?? desempenho.atleta?.id) === atleta.id,
+        )
+        acc[atleta.id] = {
+          gols: existing?.gols ?? 0,
+          assistencias: existing?.assistencias ?? 0,
+          cartoesAmarelos: existing?.cartoesAmarelos ?? 0,
+          cartoesVermelhos: existing?.cartoesVermelhos ?? 0,
+          finalizacoes: existing?.finalizacoes ?? 0,
+          impedimentos: existing?.impedimentos ?? 0,
+          faltasCometidas: existing?.faltasCometidas ?? 0,
+          faltasRecebidas: existing?.faltasRecebidas ?? 0,
+          canetas: existing?.canetas ?? 0,
+          chapeus: existing?.chapeus ?? 0,
+          driblesSimples: existing?.driblesSimples ?? 0,
+        }
+        return acc
+      }, {} as Record<number, any>)
+
+      setDesempenhoInputs(inputs)
+    } catch (error) {
+      console.error('Erro ao carregar desempenhos', error)
+    }
+  }
+
+  useEffect(() => {
+    carregarDesempenhos()
+  }, [campeonatoRodada, atletas, clubes, campeonato])
+
+  const handleDesempenhoChange = (atletaId: number, field: string, value: number) => {
+    setDesempenhoInputs((prev) => ({
+      ...prev,
+      [atletaId]: {
+        ...prev[atletaId],
+        [field]: value,
+      },
+    }))
+  }
+
+  const handleSaveDesempenho = async (atletaId: number) => {
+    if (!campeonatoRodada?.rodada?.id) return
+    const input = desempenhoInputs[atletaId]
+    if (!input) return
+
+    setActionLoading(true)
+    try {
+      await api.createDesempenhoAtleta({
+        idRodada: campeonatoRodada.rodada.id,
+        idAtleta: atletaId,
+        gols: input.gols,
+        assistencias: input.assistencias,
+        cartoesAmarelos: input.cartoesAmarelos,
+        cartoesVermelhos: input.cartoesVermelhos,
+        finalizacoes: input.finalizacoes,
+        impedimentos: input.impedimentos,
+        faltasCometidas: input.faltasCometidas,
+        faltasRecebidas: input.faltasRecebidas,
+        canetas: input.canetas,
+        chapeus: input.chapeus,
+        driblesSimples: input.driblesSimples,
+      })
+      await carregarDesempenhos()
+    } catch (error) {
+      console.error('Erro ao salvar desempenho', error)
+      alert('Não foi possível salvar as estatísticas do atleta.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
 
   if (isLoading) {
     return <div className="p-6">Carregando dados do campeonato...</div>
@@ -353,8 +470,9 @@ export default function GerenciarCampeonatoPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="info">Informações</TabsTrigger>
+          <TabsTrigger value="rodadas">Rodadas</TabsTrigger>
           <TabsTrigger value="clubes">Clubes</TabsTrigger>
           <TabsTrigger value="atletas">Atletas</TabsTrigger>
         </TabsList>
@@ -494,6 +612,333 @@ export default function GerenciarCampeonatoPage() {
               </Card>
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="rodadas" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Gerenciamento de Rodadas</CardTitle>
+              <CardDescription>
+                Controle a rodada atual do campeonato e avance para a próxima fase.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+                <div className="space-y-5">
+                  <div className="rounded-2xl border border-border bg-background p-6 shadow-sm">
+                    <p className="text-sm text-muted-foreground">Rodada atual</p>
+                    {campeonatoRodada?.rodada ? (
+                      <div className="mt-4 space-y-3">
+                        <div className="text-3xl font-bold">Rodada {campeonatoRodada.rodada.numero}</div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium">Status:</span>
+                          <Badge variant={campeonatoRodada.rodada.status === 'ABERTO' ? 'secondary' : 'destructive'}>
+                            {campeonatoRodada.rodada.status === 'ABERTO' ? 'Aberta' : 'Fechada'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          Esta rodada é usada como referência para pontuação, escalações e movimentação de mercado.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="mt-4 text-sm text-muted-foreground">Carregando rodada atual...</div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Button
+                      className="w-full sm:w-auto"
+                      onClick={async () => {
+                        if (!campeonatoRodada?.rodada?.id) return
+                        setActionLoading(true)
+                        try {
+                          await api.abrirRodada(campeonatoRodada.rodada.id)
+                          const rodadaAtualizada = await api.getCampeonatoRodadaAtual(campeonato.id)
+                          setCampeonatoRodada(rodadaAtualizada)
+                        } catch (error) {
+                          console.error('Erro ao abrir rodada', error)
+                          alert('Não foi possível abrir a rodada.')
+                        } finally {
+                          setActionLoading(false)
+                        }
+                      }}
+                      disabled={!isOwner || actionLoading || campeonatoRodada?.rodada?.status === 'ABERTO'}
+                    >
+                      Abrir rodada
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={async () => {
+                        if (!campeonatoRodada?.rodada?.id) return
+                        setActionLoading(true)
+                        try {
+                          await api.fecharRodada(campeonatoRodada.rodada.id)
+                          const rodadaAtualizada = await api.getCampeonatoRodadaAtual(campeonato.id)
+                          setCampeonatoRodada(rodadaAtualizada)
+                        } catch (error) {
+                          console.error('Erro ao fechar rodada', error)
+                          alert('Não foi possível fechar a rodada.')
+                        } finally {
+                          setActionLoading(false)
+                        }
+                      }}
+                      disabled={!isOwner || actionLoading || campeonatoRodada?.rodada?.status === 'FECHADO'}
+                    >
+                      Fechar rodada
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-border bg-muted/50 p-6">
+                  <p className="text-sm font-medium">Próxima rodada</p>
+                  <div className="mt-2 text-3xl font-bold">
+                    {campeonatoRodada?.rodada ? campeonatoRodada.rodada.numero + 1 : '-'}
+                  </div>
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    Avance para a próxima rodada quando quiser iniciar o próximo ciclo de jogos.
+                  </p>
+                  <Button
+                    variant="secondary"
+                    className="mt-4 w-full"
+                    onClick={async () => {
+                      if (!campeonato) return
+                      setActionLoading(true)
+                      try {
+                        const rodadaAtualizada = await api.avancarCampeonatoRodada(campeonato.id)
+                        setCampeonatoRodada(rodadaAtualizada)
+                      } catch (error) {
+                        console.error('Erro ao avançar rodada', error)
+                        alert('Não foi possível avançar para a próxima rodada.')
+                      } finally {
+                        setActionLoading(false)
+                      }
+                    }}
+                    disabled={!isOwner || actionLoading}
+                  >
+                    Avançar rodada
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Desempenho por Atleta</CardTitle>
+              <CardDescription>
+                Registre os dados de gols, assistências e estatísticas da rodada atual.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {campeonatoRodada?.rodada?.status === 'ABERTO' ? (
+                <div className="overflow-x-auto">
+                  <div className="flex justify-end mb-4">
+                    <Button
+                      variant="secondary"
+                      onClick={async () => {
+                        if (!isOwner || actionLoading) return
+                        setActionLoading(true)
+                        try {
+                          const payload = atletasDoCampeonato.map((atleta) => {
+                            const input = desempenhoInputs[atleta.id] || {
+                              gols: 0,
+                              assistencias: 0,
+                              cartoesAmarelos: 0,
+                              cartoesVermelhos: 0,
+                              finalizacoes: 0,
+                              impedimentos: 0,
+                              faltasCometidas: 0,
+                              faltasRecebidas: 0,
+                              canetas: 0,
+                              chapeus: 0,
+                              driblesSimples: 0,
+                            }
+
+                            return {
+                              idRodada: campeonatoRodada.rodada.id,
+                              idAtleta: atleta.id,
+                              gols: input.gols,
+                              assistencias: input.assistencias,
+                              cartoesAmarelos: input.cartoesAmarelos,
+                              cartoesVermelhos: input.cartoesVermelhos,
+                              finalizacoes: input.finalizacoes,
+                              impedimentos: input.impedimentos,
+                              faltasCometidas: input.faltasCometidas,
+                              faltasRecebidas: input.faltasRecebidas,
+                              canetas: input.canetas,
+                              chapeus: input.chapeus,
+                              driblesSimples: input.driblesSimples,
+                            }
+                          })
+
+                          await api.createDesempenhoAtletaBatch(payload)
+                          await carregarDesempenhos()
+                        } catch (error) {
+                          console.error('Erro ao salvar todos os desempenhos', error)
+                          alert('Não foi possível salvar os desempenhos.')
+                        } finally {
+                          setActionLoading(false)
+                        }
+                      }}
+                    >
+                      Salvar Tudo
+                    </Button>
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Atleta</TableHead>
+                        <TableHead>Gols</TableHead>
+                        <TableHead>Assistências</TableHead>
+                        <TableHead>Cartões Amarelos</TableHead>
+                        <TableHead>Cartões Vermelhos</TableHead>
+                        <TableHead>Finalizações</TableHead>
+                        <TableHead>Impedimentos</TableHead>
+                        <TableHead>Faltas C.</TableHead>
+                        <TableHead>Faltas R.</TableHead>
+                        <TableHead>Canetas</TableHead>
+                        <TableHead>Chapéus</TableHead>
+                        <TableHead>Dribles</TableHead>
+                        <TableHead></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {atletasDoCampeonato.map((atleta) => {
+                        const input = desempenhoInputs[atleta.id] || {
+                          gols: 0,
+                          assistencias: 0,
+                          cartoesAmarelos: 0,
+                          cartoesVermelhos: 0,
+                          finalizacoes: 0,
+                          impedimentos: 0,
+                          faltasCometidas: 0,
+                          faltasRecebidas: 0,
+                          canetas: 0,
+                          chapeus: 0,
+                          driblesSimples: 0,
+                        }
+
+                        return (
+                          <TableRow key={atleta.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={atleta.foto || undefined} alt={atleta.nome} />
+                                  <AvatarFallback>{atleta.nome.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <span>{atleta.nome}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.gols}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'gols', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.assistencias}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'assistencias', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.cartoesAmarelos}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'cartoesAmarelos', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.cartoesVermelhos}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'cartoesVermelhos', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.finalizacoes}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'finalizacoes', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.impedimentos}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'impedimentos', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.faltasCometidas}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'faltasCometidas', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.faltasRecebidas}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'faltasRecebidas', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.canetas}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'canetas', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.chapeus}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'chapeus', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                min={0}
+                                value={input.driblesSimples}
+                                onChange={(event) => handleDesempenhoChange(atleta.id, 'driblesSimples', Number(event.target.value) || 0)}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveDesempenho(atleta.id)}
+                                disabled={!isOwner || actionLoading}
+                              >
+                                Salvar
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Abra a rodada atual para inserir estatísticas dos atletas.
+                </p>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="clubes" className="space-y-6">

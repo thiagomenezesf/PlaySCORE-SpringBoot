@@ -1,9 +1,13 @@
 import type { DesempenhoAtleta, DesempenhoEquipeFantasy } from '@/types'
 
+type DesempenhoAtletaComPontos = DesempenhoAtleta & {
+  pontosCalculados?: number
+}
+
 export function calcularPontosAtleta(
   atletaId: number,
   rodadaId: number | null,
-  desempenhos: DesempenhoAtleta[]
+  desempenhos: DesempenhoAtletaComPontos[]
 ) {
   if (!rodadaId) {
     return 0
@@ -30,13 +34,13 @@ export function calcularPontuacaoEquipe(
 
 export function calcularValorAtualizado(
   precoInicial: number,
-  desempenho?: DesempenhoAtleta
+  desempenho?: DesempenhoAtletaComPontos
 ) {
   if (!desempenho) {
     return precoInicial
   }
 
-  const ajustePorPontos = (desempenho.pontosCalculados - 8) * 0.03
+  const ajustePorPontos = ((desempenho.pontosCalculados ?? 0) - 8) * 0.03
   const ajustePorCartoes = desempenho.cartoesAmarelos * -0.02 + desempenho.cartoesVermelhos * -0.05
   const ajustePorDribles = desempenho.driblesSimples * 0.005
   const ajuste = Math.max(-0.25, Math.min(0.25, ajustePorPontos + ajustePorCartoes + ajustePorDribles))

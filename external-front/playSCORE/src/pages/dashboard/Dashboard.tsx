@@ -65,12 +65,12 @@ export default function DashboardPage() {
   const pontuacaoTotal = equipeLiga.reduce((sum, entry) => sum + (entry.pontuacaoTotal || 0), 0)
   const equipeDestaque = [...equipeLiga].sort((a, b) => (b.pontuacaoTotal || 0) - (a.pontuacaoTotal || 0))[0]
   const resumoRodada = {
-    nomeLiga: ligasComExtras.find((liga) => liga.id === equipeDestaque?.idLiga)?.nome ?? 'Liga em destaque',
+    nomeLiga: ligasComExtras.find((liga) => liga.id === equipeDestaque?.liga?.id)?.nome ?? 'Liga em destaque',
     logo: undefined,
     pontuacaoRodada:
       equipeDestaque
         ? desempenhoEquipeFantasy.find(
-            (entry) => entry.idLiga === equipeDestaque.idLiga && entry.idEquipeFantasy === equipeDestaque.idEquipeFantasy,
+            (entry) => entry.liga?.id === equipeDestaque.liga?.id && entry.equipeFantasy?.id === equipeDestaque.equipeFantasy?.id,
           )?.pontuacaoRodada ?? equipeDestaque.pontuacaoTotal
         : 0,
     pontuacaoTotal: equipeDestaque?.pontuacaoTotal ?? 0,

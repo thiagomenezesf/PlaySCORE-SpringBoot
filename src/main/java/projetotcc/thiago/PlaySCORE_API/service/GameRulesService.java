@@ -6,7 +6,9 @@ import org.springframework.transaction.annotation.Transactional;
 import projetotcc.thiago.PlaySCORE_API.model.*;
 import projetotcc.thiago.PlaySCORE_API.repository.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -31,6 +33,15 @@ public class GameRulesService {
     @Autowired
     private RodadaRepository rodadaRepository;
 
+    @Autowired
+    private AtletaRepository atletaRepository;
+
+    @Autowired
+    private DesempenhoAtletaLigaRepository desempenhoAtletaLigaRepository;
+
+    @Autowired
+    private LigaRepository ligaRepository;
+
     @Transactional
     public void fecharRodada(Long rodadaId) {
         Rodada rodada = rodadaRepository.findById(rodadaId)
@@ -43,6 +54,8 @@ public class GameRulesService {
 
         // Recalcula todos os desempenhos da rodada com base nas regras da liga de cada equipe
         List<Escalacao> escalacoes = escalacaoRepository.findByRodadaId(rodadaId);
+        Map<String, DesempenhoAtletaLiga> desempenhoLigaPorAtletaELiga = new HashMap<>();
+
         for (Escalacao escalacao : escalacoes) {
             Atleta atleta = escalacao.getAtleta();
             if (atleta == null) continue;
@@ -57,10 +70,36 @@ public class GameRulesService {
             if (desempenhosAtleta.isEmpty()) continue;
 
             DesempenhoAtleta desempenhoAtleta = desempenhosAtleta.get(0);
+            String desempenhoKey = desempenhoAtleta.getId() + "_" + equipeLiga.getLiga().getId();
+            if (desempenhoLigaPorAtletaELiga.containsKey(desempenhoKey)) {
+                continue;
+            }
+
             double pontosCalculados = calcularPontosCalculados(desempenhoAtleta, regrasLiga);
-            desempenhoAtleta.setPontosCalculados(pontosCalculados);
-            desempenhoAtleta.setValorAtualizado(calcularValorAtualizado(desempenhoAtleta));
-            desempenhoAtletaRepository.save(desempenhoAtleta);
+
+            Optional<DesempenhoAtletaLiga> desempenhoAnteriorLigaOpt =
+                    desempenhoAtletaLigaRepository
+                            .findFirstByDesempenhoAtletaAtletaIdAndLigaIdAndRodadaNumeroLessThanOrderByRodadaNumeroDesc(
+                                    atleta.getId(), equipeLiga.getLiga().getId(), rodada.getNumero());
+
+            double valorAnterior = desempenhoAnteriorLigaOpt
+                    .map(DesempenhoAtletaLiga::getValorAtualizado)
+                    .orElse(atleta.getPrecoInicial() != null ? atleta.getPrecoInicial() : 0.0);
+            double valorAtual = valorAnterior;
+            double valorAtualizado = calcularValorAtualizado(valorAnterior, pontosCalculados, desempenhoAnteriorLigaOpt);
+
+            DesempenhoAtletaLiga desempenhoAtletaLiga = desempenhoAtletaLigaRepository
+                    .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(desempenhoAtleta.getId(), equipeLiga.getLiga().getId(), rodada.getId())
+                    .orElse(new DesempenhoAtletaLiga());
+
+            desempenhoAtletaLiga.setDesempenhoAtleta(desempenhoAtleta);
+            desempenhoAtletaLiga.setLiga(equipeLiga.getLiga());
+            desempenhoAtletaLiga.setRodada(rodada);
+            desempenhoAtletaLiga.setPontosCalculados(pontosCalculados);
+            desempenhoAtletaLiga.setValorAtual(valorAtual);
+            desempenhoAtletaLiga.setValorAtualizado(valorAtualizado);
+            desempenhoAtletaLigaRepository.save(desempenhoAtletaLiga);
+            desempenhoLigaPorAtletaELiga.put(desempenhoKey, desempenhoAtletaLiga);
         }
 
         // Para cada equipe na rodada, cria registros de desempenho e atualiza pontuação total
@@ -83,13 +122,22 @@ public class GameRulesService {
                         .stream().findFirst().orElse(null);
                 if (desempenhoAtleta == null) continue;
 
-                double contribution = desempenhoAtleta.getPontosCalculados() == null ? 0.0 : desempenhoAtleta.getPontosCalculados();
+                DesempenhoAtletaLiga desempenhoAtletaLiga = desempenhoLigaPorAtletaELiga.get(desempenhoAtleta.getId() + "_" + equipeLiga.getLiga().getId());
+                if (desempenhoAtletaLiga == null) {
+                    desempenhoAtletaLiga = desempenhoAtletaLigaRepository
+                            .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(desempenhoAtleta.getId(), equipeLiga.getLiga().getId(), rodadaId)
+                            .orElse(null);
+                }
+                if (desempenhoAtletaLiga == null) continue;
+
+                double contribution = desempenhoAtletaLiga.getPontosCalculados() == null ? 0.0 : desempenhoAtletaLiga.getPontosCalculados();
                 pontuacaoRodadaTotal += contribution;
 
                 DesempenhoEquipeFantasy registro = new DesempenhoEquipeFantasy();
                 registro.setEquipeLiga(equipeLiga);
                 registro.setRodada(rodada);
                 registro.setDesempenhoAtleta(desempenhoAtleta);
+                registro.setDesempenhoAtletaLiga(desempenhoAtletaLiga);
                 registro.setPontuacaoRodada(contribution);
                 desempenhoEquipeFantasyRepository.save(registro);
             }
@@ -127,34 +175,66 @@ public class GameRulesService {
         };
     }
 
-    private double calcularValorAtualizado(DesempenhoAtleta desempenhoAtual) {
-        Atleta atleta = desempenhoAtual.getAtleta();
-        if (atleta == null) {
-            return desempenhoAtual.getValorAtualizado() == null ? 0.0 : desempenhoAtual.getValorAtualizado();
+    private double calcularValorAtualizado(double valorAnterior, double pontosAtuais, Optional<DesempenhoAtletaLiga> desempenhoAnteriorLigaOpt) {
+        if (valorAnterior <= 0) {
+            return 0.0;
         }
 
-        Double precoInicial = atleta.getPrecoAtual() != null ? atleta.getPrecoAtual() : atleta.getPrecoInicial();
-        if (precoInicial == null) {
-            precoInicial = 0.0;
-        }
+        double pontosAnteriores = desempenhoAnteriorLigaOpt
+                .map(DesempenhoAtletaLiga::getPontosCalculados)
+                .orElse(0.0);
 
-        Optional<DesempenhoAtleta> anterior = desempenhoAtletaRepository
-                .findTopByAtletaIdAndRodadaNumeroLessThanOrderByRodadaNumeroDesc(atleta.getId(), desempenhoAtual.getRodada().getNumero());
-
-        double pontosAtuais = desempenhoAtual.getPontosCalculados() == null ? 0.0 : desempenhoAtual.getPontosCalculados();
-        if (anterior.isEmpty()) {
-            return Math.round(precoInicial * 100.0) / 100.0;
-        }
-
-        double pontosAnteriores = anterior.get().getPontosCalculados() == null ? 0.0 : anterior.get().getPontosCalculados();
         if (pontosAnteriores <= 0) {
-            return Math.round(precoInicial * 100.0) / 100.0;
+            return Math.round(valorAnterior * 100.0) / 100.0;
         }
 
         double diferencaRelativa = (pontosAtuais - pontosAnteriores) / pontosAnteriores;
         double ajustePercentual = Math.max(-0.25, Math.min(0.25, diferencaRelativa * 0.20));
-        double valorAtualizado = precoInicial * (1 + ajustePercentual);
+        double valorAtualizado = valorAnterior * (1 + ajustePercentual);
         return Math.round(valorAtualizado * 100.0) / 100.0;
     }
+
+    @Transactional
+    public void atualizarDesempenhoAtletaLiga(DesempenhoAtleta desempenho) {
+        if (desempenho == null) return;
+        Rodada rodada = desempenho.getRodada();
+        Atleta atleta = desempenho.getAtleta();
+        if (rodada == null || atleta == null || rodada.getCampeonato() == null) return;
+
+        List<Liga> ligasDoCampeonato = ligaRepository.findByCampeonatoId(rodada.getCampeonato().getId());
+        for (Liga liga : ligasDoCampeonato) {
+            if (liga == null || liga.getId() == null) continue;
+
+            List<RegraPontuacaoLiga> regrasLiga = regraRepository.findByLigaId(liga.getId());
+            if (regrasLiga.isEmpty()) continue;
+
+            double pontosCalculados = calcularPontosCalculados(desempenho, regrasLiga);
+
+            Optional<DesempenhoAtletaLiga> desempenhoAnteriorLigaOpt =
+                    desempenhoAtletaLigaRepository
+                            .findFirstByDesempenhoAtletaAtletaIdAndLigaIdAndRodadaNumeroLessThanOrderByRodadaNumeroDesc(
+                                    atleta.getId(), liga.getId(), rodada.getNumero());
+
+            double valorAnterior = desempenhoAnteriorLigaOpt
+                    .map(DesempenhoAtletaLiga::getValorAtualizado)
+                    .orElse(atleta.getPrecoInicial() != null ? atleta.getPrecoInicial() : 0.0);
+            double valorAtual = valorAnterior;
+            double valorAtualizado = calcularValorAtualizado(valorAnterior, pontosCalculados, desempenhoAnteriorLigaOpt);
+
+            DesempenhoAtletaLiga ent = desempenhoAtletaLigaRepository
+                    .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(desempenho.getId(), liga.getId(), rodada.getId())
+                    .orElse(new DesempenhoAtletaLiga());
+
+            ent.setDesempenhoAtleta(desempenho);
+            ent.setLiga(liga);
+            ent.setRodada(rodada);
+            ent.setPontosCalculados(pontosCalculados);
+            ent.setValorAtual(valorAtual);
+            ent.setValorAtualizado(valorAtualizado);
+
+            desempenhoAtletaLigaRepository.save(ent);
+        }
+    }
 }
+
 

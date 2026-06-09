@@ -30,4 +30,9 @@ public class DesempenhoAtletaController {
     public DesempenhoAtleta salvar(@Valid @RequestBody DesempenhoAtletaRequest request) {
         return desempenhoAtletaService.salvar(request);
     }
+
+    @PostMapping("/batch")
+    public List<DesempenhoAtleta> salvarEmLote(@RequestBody List<DesempenhoAtletaRequest> requests) {
+        return desempenhoAtletaService.salvarEmLote(requests);
+    }
 }

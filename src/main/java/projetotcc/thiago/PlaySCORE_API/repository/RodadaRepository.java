@@ -4,8 +4,12 @@ import projetotcc.thiago.PlaySCORE_API.model.Rodada;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+import java.util.Optional;
+
 @Repository
 public interface RodadaRepository extends JpaRepository<Rodada, Long> {
-    // Aqui o Spring já te dá de graça os métodos:
-    // save(), findAll(), findById(), delete()... sem você digitar nada!
+    List<Rodada> findByCampeonatoId(Long campeonatoId);
+    Optional<Rodada> findByCampeonatoIdAndNumero(Long campeonatoId, Integer numero);
+    Optional<Rodada> findTopByCampeonatoIdOrderByNumeroDesc(Long campeonatoId);
 }

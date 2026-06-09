@@ -30,4 +30,14 @@ public class CampeonatoRodadaController {
     public CampeonatoRodada salvar(@Valid @RequestBody CampeonatoRodadaRequest request) {
         return campeonatoRodadaService.salvar(request);
     }
+
+    @GetMapping("/campeonato/{idCampeonato}")
+    public CampeonatoRodada buscarRodadaAtual(@PathVariable Long idCampeonato) {
+        return campeonatoRodadaService.obterRodadaAtual(idCampeonato);
+    }
+
+    @PostMapping("/campeonato/{idCampeonato}/avancar")
+    public CampeonatoRodada avancarRodada(@PathVariable Long idCampeonato) {
+        return campeonatoRodadaService.avancarRodada(idCampeonato);
+    }
 }

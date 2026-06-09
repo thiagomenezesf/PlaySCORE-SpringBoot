@@ -2,6 +2,7 @@ package projetotcc.thiago.PlaySCORE_API.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import projetotcc.thiago.PlaySCORE_API.dto.DesempenhoAtletaRequest;
 import projetotcc.thiago.PlaySCORE_API.exception.ResourceNotFoundException;
 import projetotcc.thiago.PlaySCORE_API.model.Atleta;
@@ -25,6 +26,9 @@ public class DesempenhoAtletaService {
     @Autowired
     private RodadaRepository rodadaRepository;
 
+    @Autowired
+    private GameRulesService gameRulesService;
+
     public List<DesempenhoAtleta> listarTodos() {
         return desempenhoAtletaRepository.findAll();
     }
@@ -41,7 +45,10 @@ public class DesempenhoAtletaService {
         Rodada rodada = rodadaRepository.findById(request.getIdRodada())
                 .orElseThrow(() -> new ResourceNotFoundException("Rodada", request.getIdRodada()));
 
-        DesempenhoAtleta desempenho = new DesempenhoAtleta();
+        List<DesempenhoAtleta> desempenhosExistentes = desempenhoAtletaRepository
+                .findByAtletaIdAndRodadaId(request.getIdAtleta(), request.getIdRodada());
+
+        DesempenhoAtleta desempenho = desempenhosExistentes.stream().findFirst().orElse(new DesempenhoAtleta());
         desempenho.setAtleta(atleta);
         desempenho.setRodada(rodada);
         desempenho.setGols(request.getGols());
@@ -55,8 +62,21 @@ public class DesempenhoAtletaService {
         desempenho.setCanetas(request.getCanetas());
         desempenho.setChapeus(request.getChapeus());
         desempenho.setDriblesSimples(request.getDriblesSimples());
-        desempenho.setPontosCalculados(request.getPontosCalculados());
-        desempenho.setValorAtualizado(request.getValorAtualizado());
-        return desempenhoAtletaRepository.save(desempenho);
+        
+        DesempenhoAtleta saved = desempenhoAtletaRepository.save(desempenho);
+        try {
+            gameRulesService.atualizarDesempenhoAtletaLiga(saved);
+        } catch (Exception e) {
+            // não bloquear o salvamento principal em caso de erro secundário
+            e.printStackTrace();
+        }
+        return saved;
+    }
+
+    @Transactional
+    public List<DesempenhoAtleta> salvarEmLote(List<DesempenhoAtletaRequest> requests) {
+        return requests.stream()
+                .map(this::salvar)
+                .toList();
     }
 }

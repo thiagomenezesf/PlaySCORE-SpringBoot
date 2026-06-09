@@ -39,4 +39,10 @@ public class RodadaService {
         rodada.setCampeonato(campeonato);
         return rodadaRepository.save(rodada);
     }
+
+    public Rodada abrirRodada(Long id) {
+        Rodada rodada = buscarPorId(id);
+        rodada.setStatus("ABERTO");
+        return rodadaRepository.save(rodada);
+    }
 }

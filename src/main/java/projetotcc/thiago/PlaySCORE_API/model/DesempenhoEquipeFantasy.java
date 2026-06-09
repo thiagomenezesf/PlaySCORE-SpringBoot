@@ -25,4 +25,8 @@ public class DesempenhoEquipeFantasy {
     @ManyToOne
     @JoinColumn(name = "desempenho_atleta_id")
     private DesempenhoAtleta desempenhoAtleta;
+
+    @ManyToOne
+    @JoinColumn(name = "desempenho_atleta_liga_id")
+    private DesempenhoAtletaLiga desempenhoAtletaLiga;
 }

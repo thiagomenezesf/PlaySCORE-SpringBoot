@@ -142,8 +142,16 @@ export interface DesempenhoAtleta {
   driblesSimples: number
   idRodada: number // FK para Rodada.id
   idAtleta: number // FK para Atleta.id
+}
+
+export interface DesempenhoAtletaLiga {
+  id: number
   pontosCalculados: number
+  valorAtual: number
   valorAtualizado: number
+  desempenhoAtleta: DesempenhoAtleta
+  liga?: Liga
+  rodada?: Rodada
 }
 
 // Regra de Pontuação da Liga

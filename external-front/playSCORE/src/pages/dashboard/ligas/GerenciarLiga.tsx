@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAuth } from '@/hooks/use-auth'
 import api from '@/lib/api'
-import type { Campeonato, Liga } from '@/types'
+import type { Campeonato } from '@/types'
 import { acoesPontuacao } from '@/lib/jogo-config'
 
 export default function GerenciarLigaPage() {

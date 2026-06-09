@@ -41,4 +41,9 @@ public class RodadaController {
         gameRulesService.fecharRodada(id);
         return "Rodada " + id + " fechada";
     }
+
+    @PostMapping("/{id}/abrir")
+    public Rodada abrirRodada(@PathVariable Long id) {
+        return rodadaService.abrirRodada(id);
+    }
 }

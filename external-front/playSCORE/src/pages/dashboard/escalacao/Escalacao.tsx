@@ -13,19 +13,6 @@ import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/hooks/use-auth'
 import api from '@/lib/api'
 import type { Atleta } from '@/types'
-import {
-  mockAtletas,
-  mockClubes,
-  mockEscalacao,
-  mockRodadas,
-  mockCampeonatoRodadas,
-  mockDesempenhoAtleta,
-  mockDesempenhoEquipeFantasy,
-  mockEquipesFantasy,
-  mockLigas,
-  mockEquipeLiga,
-  mockCampeonatos,
-} from '@/mocks/database'
 import { Toaster } from '@/components/ui/toaster'
 import { X } from 'lucide-react'
 import { layoutsPorTipo, tiposJogo, posicaoLabels, posicaoColors } from '@/lib/jogo-config'
@@ -80,7 +67,19 @@ export default function EscalacaoPage() {
     api.listRodadas().then((d) => setApiRodadas(d)).catch(() => null)
     api.listCampeonatos().then((d) => setApiCampeonatos(d)).catch(() => null)
     api.listCampeonatoRodadas().then((d) => setApiCampeonatoRodadas(d)).catch(() => null)
-    api.listDesempenhoAtleta().then((d) => setApiDesempenhoAtleta(d)).catch(() => null)
+    api.listDesempenhoAtletaLiga().then((d) => {
+      const merged = (d || []).map((item: any) => {
+        const base = item.desempenhoAtleta || {}
+        return {
+          ...base,
+          pontosCalculados: item.pontosCalculados ?? 0,
+          valorAtualizado: item.valorAtualizado ?? 0,
+          rodada: item.rodada,
+          atleta: base.atleta || item.desempenhoAtleta?.atleta,
+        }
+      })
+      setApiDesempenhoAtleta(merged)
+    }).catch(() => null)
     api.listDesempenhoEquipeFantasy().then((d) => setApiDesempenhoEquipeFantasy(d)).catch(() => null)
     api.listEquipesFantasy().then((d) => setApiEquipesFantasy(d)).catch(() => null)
     api.listLigas().then((d) => setApiLigas(d)).catch(() => null)
@@ -195,12 +194,6 @@ export default function EscalacaoPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [formacao, setFormacao] = useState(configJogo.formacoes[0])
 
-  const layoutAtual = layoutsPorTipo[tipoJogo][formacao.nome]
-
-  if (!layoutAtual) {
-    return <div>Layout não encontrado</div>
-  }
-
   const [time, setTime] = useState(mockMeuTime)
 
   // Atualizar time quando os dados mudam
@@ -210,6 +203,12 @@ export default function EscalacaoPage() {
 
   const [posicaoFiltro, setPosicaoFiltro] = useState<Atleta['posicao'] | 'ALL'>('ALL')
   const [slotSelecionado, setSlotSelecionado] = useState<Atleta['posicao'] | null>(null)
+
+  const layoutAtual = layoutsPorTipo[tipoJogo][formacao.nome]
+
+  if (!layoutAtual) {
+    return <div>Layout não encontrado</div>
+  }
 
   const gastoTotal = time.escalados.reduce((acc, a) => acc + a.preco, 0)
   const patrimonioRestante = time.patrimonio - gastoTotal

@@ -125,11 +125,6 @@ export default function CriarLigaPage() {
     }
   }
 
-  const generateAccessCode = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
-  }
-
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
