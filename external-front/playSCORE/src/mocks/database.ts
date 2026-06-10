@@ -671,7 +671,7 @@ if (!useMocks) {
       if (campeonatoRodadas && Array.isArray(campeonatoRodadas)) mockCampeonatoRodadas = campeonatoRodadas
       if (equipesFantasy && Array.isArray(equipesFantasy)) mockEquipesFantasy = equipesFantasy
       if (desempenhoAtleta && Array.isArray(desempenhoAtleta)) mockDesempenhoAtleta = desempenhoAtleta
-      if (desempenhoEquipeFantasy && Array.isArray(desempenhoEquipeFantasy)) mockDesempenhoEquipeFantasy = desempenhoEquipeFantasy
+      if (desempenhoEquipeFantasy && Array.isArray(desempenhoEquipeFantasy)) mockDesempenhoEquipeFantasy = desempenhoEquipeFantasy as any[]
       if (regras && Array.isArray(regras)) mockRegraPontuacaoLiga = regras
       if (equipeLiga && Array.isArray(equipeLiga)) mockEquipeLiga = equipeLiga
     } catch (e) {

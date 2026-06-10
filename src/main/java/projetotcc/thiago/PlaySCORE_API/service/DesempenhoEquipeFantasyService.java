@@ -4,12 +4,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import projetotcc.thiago.PlaySCORE_API.dto.DesempenhoEquipeFantasyRequest;
 import projetotcc.thiago.PlaySCORE_API.exception.ResourceNotFoundException;
-import projetotcc.thiago.PlaySCORE_API.model.DesempenhoAtleta;
 import projetotcc.thiago.PlaySCORE_API.model.DesempenhoEquipeFantasy;
 import projetotcc.thiago.PlaySCORE_API.model.EquipeLiga;
-import projetotcc.thiago.PlaySCORE_API.repository.DesempenhoAtletaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.DesempenhoEquipeFantasyRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.EquipeLigaRepository;
+import projetotcc.thiago.PlaySCORE_API.repository.RodadaRepository;
 
 import java.util.List;
 
@@ -23,7 +22,7 @@ public class DesempenhoEquipeFantasyService {
     private EquipeLigaRepository equipeLigaRepository;
 
     @Autowired
-    private DesempenhoAtletaRepository desempenhoAtletaRepository;
+    private RodadaRepository rodadaRepository;
 
     public List<DesempenhoEquipeFantasy> listarTodos() {
         return desempenhoEquipeFantasyRepository.findAll();
@@ -37,14 +36,12 @@ public class DesempenhoEquipeFantasyService {
     public DesempenhoEquipeFantasy salvar(DesempenhoEquipeFantasyRequest request) {
         EquipeLiga equipeLiga = equipeLigaRepository.findById(request.getIdEquipeLiga())
                 .orElseThrow(() -> new ResourceNotFoundException("EquipeLiga", request.getIdEquipeLiga()));
-
-        DesempenhoAtleta desempenhoAtleta = desempenhoAtletaRepository.findById(request.getIdDesempenhoAtleta())
-                .orElseThrow(() -> new ResourceNotFoundException("DesempenhoAtleta", request.getIdDesempenhoAtleta()));
+        var rodada = rodadaRepository.findById(request.getIdRodada())
+            .orElseThrow(() -> new ResourceNotFoundException("Rodada", request.getIdRodada()));
 
         DesempenhoEquipeFantasy desempenho = new DesempenhoEquipeFantasy();
         desempenho.setEquipeLiga(equipeLiga);
-        desempenho.setRodada(desempenhoAtleta.getRodada());
-        desempenho.setDesempenhoAtleta(desempenhoAtleta);
+        desempenho.setRodada(rodada);
         desempenho.setPontuacaoRodada(request.getPontuacaoRodada());
         return desempenhoEquipeFantasyRepository.save(desempenho);
     }

@@ -730,7 +730,7 @@ export default function GerenciarCampeonatoPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {campeonatoRodada?.rodada?.status === 'ABERTO' ? (
+              {campeonatoRodada?.rodada?.status === 'FECHADO' ? (
                 <div className="overflow-x-auto">
                   <div className="flex justify-end mb-4">
                     <Button
@@ -829,7 +829,7 @@ export default function GerenciarCampeonatoPage() {
                                 <span>{atleta.nome}</span>
                               </div>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="w-24 min-w-[80px]">
                               <Input
                                 type="number"
                                 min={0}

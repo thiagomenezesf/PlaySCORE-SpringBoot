@@ -30,4 +30,9 @@ public class EscalacaoController {
     public Escalacao salvar(@Valid @RequestBody EscalacaoRequest request) {
         return escalacaoService.salvar(request);
     }
+
+    @PostMapping("/batch")
+    public java.util.List<Escalacao> salvarEmLote(@RequestBody java.util.List<EscalacaoRequest> requests) {
+        return escalacaoService.salvarEmLote(requests);
+    }
 }

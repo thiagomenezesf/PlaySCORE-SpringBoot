@@ -11,8 +11,5 @@ public class DesempenhoEquipeFantasyRequest {
     @NotNull(message = "O ID da rodada é obrigatório")
     private Long idRodada;
 
-    @NotNull(message = "O ID do desempenho do atleta é obrigatório")
-    private Long idDesempenhoAtleta;
-
     private Double pontuacaoRodada = 0.0;
 }

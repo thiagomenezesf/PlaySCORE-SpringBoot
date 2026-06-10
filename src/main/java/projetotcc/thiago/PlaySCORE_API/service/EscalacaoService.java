@@ -45,6 +45,33 @@ public class EscalacaoService {
     }
 
     public Escalacao salvar(EscalacaoRequest request) {
+        Escalacao escalacao = criarEscalacao(request);
+        return escalacaoRepository.save(escalacao);
+    }
+
+    public java.util.List<Escalacao> salvarEmLote(java.util.List<EscalacaoRequest> requests) {
+        if (requests == null || requests.isEmpty()) {
+            return java.util.Collections.emptyList();
+        }
+
+        Long equipeLigaId = requests.get(0).getIdEquipeLiga();
+        Long rodadaId = requests.get(0).getIdRodada();
+
+        // Remover escalações antigas da mesma equipe na mesma rodada antes de recriar
+        escalacaoRepository.deleteByEquipeLigaIdAndRodadaId(equipeLigaId, rodadaId);
+
+        java.util.List<Escalacao> escalacoes = new java.util.ArrayList<>();
+        for (EscalacaoRequest request : requests) {
+            if (!request.getIdEquipeLiga().equals(equipeLigaId) || !request.getIdRodada().equals(rodadaId)) {
+                throw new IllegalArgumentException("Todas as escalações em lote devem pertencer à mesma equipe e rodada.");
+            }
+            escalacoes.add(criarEscalacao(request));
+        }
+
+        return escalacaoRepository.saveAll(escalacoes);
+    }
+
+    private Escalacao criarEscalacao(EscalacaoRequest request) {
         Atleta atleta = atletaRepository.findById(request.getIdAtleta())
                 .orElseThrow(() -> new ResourceNotFoundException("Atleta", request.getIdAtleta()));
 
@@ -63,6 +90,6 @@ public class EscalacaoService {
         escalacao.setEquipeLiga(equipeLiga);
         escalacao.setEquipeFantasy(equipeFantasy);
         escalacao.setIsCapitao(request.getIsCapitao() == null ? false : request.getIsCapitao());
-        return escalacaoRepository.save(escalacao);
+        return escalacao;
     }
 }

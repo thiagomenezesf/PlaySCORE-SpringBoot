@@ -1,5 +1,7 @@
 package projetotcc.thiago.PlaySCORE_API.service;
 
+import java.util.stream.Collectors;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -10,6 +12,7 @@ import projetotcc.thiago.PlaySCORE_API.model.Clube;
 import projetotcc.thiago.PlaySCORE_API.model.CampeonatoRodada;
 import projetotcc.thiago.PlaySCORE_API.model.Campeonato;
 import projetotcc.thiago.PlaySCORE_API.model.DesempenhoAtleta;
+import projetotcc.thiago.PlaySCORE_API.model.DesempenhoAtletaLiga;
 import projetotcc.thiago.PlaySCORE_API.model.DesempenhoEquipeFantasy;
 import projetotcc.thiago.PlaySCORE_API.model.EquipeLiga;
 import projetotcc.thiago.PlaySCORE_API.model.Liga;
@@ -23,6 +26,9 @@ import projetotcc.thiago.PlaySCORE_API.repository.DesempenhoEquipeFantasyReposit
 import projetotcc.thiago.PlaySCORE_API.repository.EquipeLigaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.LigaRepository;
 import projetotcc.thiago.PlaySCORE_API.repository.RodadaRepository;
+import projetotcc.thiago.PlaySCORE_API.repository.EscalacaoRepository;
+import projetotcc.thiago.PlaySCORE_API.repository.DesempenhoAtletaLigaRepository;
+import projetotcc.thiago.PlaySCORE_API.model.Escalacao;
 
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +65,12 @@ public class CampeonatoRodadaService {
 
     @Autowired
     private GameRulesService gameRulesService;
+
+    @Autowired
+    private EscalacaoRepository escalacaoRepository;
+
+    @Autowired
+    private DesempenhoAtletaLigaRepository desempenhoAtletaLigaRepository;
 
     public List<CampeonatoRodada> listarTodos() {
         return campeonatoRodadaRepository.findAll();
@@ -211,6 +223,67 @@ public class CampeonatoRodadaService {
                     registro.setPontuacaoRodada(0.0);
                     desempenhoEquipeFantasyRepository.save(registro);
                 }
+            }
+        }
+
+        // Copiar escalações da rodada anterior e recalcular patrimônio
+        copiarEscalacoesRodadaAnterior(rodada);
+    }
+
+    @Transactional
+    private void copiarEscalacoesRodadaAnterior(Rodada rodadaAtual) {
+        Integer numeroRodadaAnterior = rodadaAtual.getNumero() - 1;
+        if (numeroRodadaAnterior < 1) return;
+
+        Campeonato campeonato = rodadaAtual.getCampeonato();
+        if (campeonato == null) return;
+
+        java.util.Optional<Rodada> rodadaAnteriorOpt = rodadaRepository.findByCampeonatoIdAndNumero(campeonato.getId(), numeroRodadaAnterior);
+        if (!rodadaAnteriorOpt.isPresent()) return;
+
+        Rodada rodadaAnterior = rodadaAnteriorOpt.get();
+
+        // Buscar todas as escalações da rodada anterior
+        java.util.List<Escalacao> escalacoesAnterior = escalacaoRepository.findByRodadaId(rodadaAnterior.getId());
+        if (escalacoesAnterior.isEmpty()) return;
+
+        // Copiar escalações para a nova rodada e recalcular patrimônio de cada equipe
+        for (Escalacao escalaçãoAnterior : escalacoesAnterior) {
+            Escalacao novaEscalacao = new Escalacao();
+            novaEscalacao.setAtleta(escalaçãoAnterior.getAtleta());
+            novaEscalacao.setEquipeLiga(escalaçãoAnterior.getEquipeLiga());
+            novaEscalacao.setRodada(rodadaAtual);
+            novaEscalacao.setEquipeFantasy(escalaçãoAnterior.getEquipeFantasy());
+            novaEscalacao.setIsCapitao(escalaçãoAnterior.getIsCapitao());
+            escalacaoRepository.save(novaEscalacao);
+        }
+
+        // Agrupar escalações por equipeLiga e recalcular patrimônio
+        java.util.Map<Long, java.util.List<Escalacao>> escalacoesPerEquipe = escalacoesAnterior.stream()
+                .collect(java.util.stream.Collectors.groupingBy(e -> e.getEquipeLiga().getId()));
+
+        for (java.util.Map.Entry<Long, java.util.List<Escalacao>> entry : escalacoesPerEquipe.entrySet()) {
+            Long equipeLigaId = entry.getKey();
+            java.util.List<Escalacao> escalacoes = entry.getValue();
+
+            // Calcular patrimônio = soma dos valor_atual de cada atleta escalado
+            double patrimonioAtualizado = 0.0;
+            for (Escalacao esc : escalacoes) {
+                Atleta atleta = esc.getAtleta();
+                java.util.Optional<DesempenhoAtletaLiga> desempenhoLiga = desempenhoAtletaLigaRepository
+                        .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(atleta.getId(), esc.getEquipeLiga().getLiga().getId(), rodadaAtual.getId());
+                if (desempenhoLiga.isPresent()) {
+                    Double valorAtual = desempenhoLiga.get().getValorAtual();
+                    patrimonioAtualizado += (valorAtual != null ? valorAtual : 0.0);
+                }
+            }
+
+            // Atualizar patrimônio da equipeLiga
+            java.util.Optional<EquipeLiga> equipeLigaOpt = equipeLigaRepository.findById(equipeLigaId);
+            if (equipeLigaOpt.isPresent()) {
+                EquipeLiga equipeLiga = equipeLigaOpt.get();
+                equipeLiga.setPatrimonio(patrimonioAtualizado);
+                equipeLigaRepository.save(equipeLiga);
             }
         }
     }

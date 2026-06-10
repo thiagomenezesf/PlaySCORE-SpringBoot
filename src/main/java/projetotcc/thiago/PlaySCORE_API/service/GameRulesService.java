@@ -110,46 +110,53 @@ public class GameRulesService {
                 .collect(Collectors.toList());
 
         for (EquipeLiga equipeLiga : equipesNaRodada) {
-            List<Escalacao> escalacoesEquipe = escalacaoRepository.findByEquipeLigaIdAndRodadaId(equipeLiga.getId(), rodadaId);
-            if (escalacoesEquipe.isEmpty()) continue;
-
-            // Remove resultados antigos desta equipe nesta rodada antes de recalcular
-            desempenhoEquipeFantasyRepository.deleteByEquipeLigaIdAndRodadaId(equipeLiga.getId(), rodadaId);
-
-            double pontuacaoRodadaTotal = 0.0;
-            for (Escalacao esc : escalacoesEquipe) {
-                DesempenhoAtleta desempenhoAtleta = desempenhoAtletaRepository.findByAtletaIdAndRodadaId(esc.getAtleta().getId(), rodadaId)
-                        .stream().findFirst().orElse(null);
-                if (desempenhoAtleta == null) continue;
-
-                DesempenhoAtletaLiga desempenhoAtletaLiga = desempenhoLigaPorAtletaELiga.get(desempenhoAtleta.getId() + "_" + equipeLiga.getLiga().getId());
-                if (desempenhoAtletaLiga == null) {
-                    desempenhoAtletaLiga = desempenhoAtletaLigaRepository
-                            .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(desempenhoAtleta.getId(), equipeLiga.getLiga().getId(), rodadaId)
-                            .orElse(null);
-                }
-                if (desempenhoAtletaLiga == null) continue;
-
-                double contribution = desempenhoAtletaLiga.getPontosCalculados() == null ? 0.0 : desempenhoAtletaLiga.getPontosCalculados();
-                pontuacaoRodadaTotal += contribution;
-
-                DesempenhoEquipeFantasy registro = new DesempenhoEquipeFantasy();
-                registro.setEquipeLiga(equipeLiga);
-                registro.setRodada(rodada);
-                registro.setDesempenhoAtleta(desempenhoAtleta);
-                registro.setDesempenhoAtletaLiga(desempenhoAtletaLiga);
-                registro.setPontuacaoRodada(contribution);
-                desempenhoEquipeFantasyRepository.save(registro);
-            }
-
-            Double totalAnterior = equipeLiga.getPontuacaoTotal();
-            equipeLiga.setPontuacaoTotal((totalAnterior == null ? 0.0 : totalAnterior) + pontuacaoRodadaTotal);
-            equipeLigaRepository.save(equipeLiga);
+            updatePontuacaoEquipeParaRodada(equipeLiga.getId(), rodadaId);
         }
 
         rodada.setStatus("FECHADO");
         rodadaRepository.save(rodada);
     }
+
+        @Transactional
+        private void updatePontuacaoEquipeParaRodada(Long equipeLigaId, Long rodadaId) {
+        List<Escalacao> escalacoesEquipe = escalacaoRepository.findByEquipeLigaIdAndRodadaId(equipeLigaId, rodadaId);
+        if (escalacoesEquipe.isEmpty()) return;
+
+        double pontuacaoRodadaTotal = 0.0;
+        for (Escalacao esc : escalacoesEquipe) {
+            DesempenhoAtleta desempenhoAtleta = desempenhoAtletaRepository.findByAtletaIdAndRodadaId(esc.getAtleta().getId(), rodadaId)
+                .stream().findFirst().orElse(null);
+            if (desempenhoAtleta == null) continue;
+
+            DesempenhoAtletaLiga desempenhoAtletaLiga = desempenhoAtletaLigaRepository
+                .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(desempenhoAtleta.getId(), esc.getEquipeLiga().getLiga().getId(), rodadaId)
+                .orElse(null);
+            if (desempenhoAtletaLiga == null) continue;
+
+            double contribution = desempenhoAtletaLiga.getPontosCalculados() == null ? 0.0 : desempenhoAtletaLiga.getPontosCalculados();
+            pontuacaoRodadaTotal += contribution;
+        }
+
+        // Remover registros antigos e criar/atualizar registro agregado único
+        desempenhoEquipeFantasyRepository.deleteByEquipeLigaIdAndRodadaId(equipeLigaId, rodadaId);
+        EquipeLiga equipeLiga = equipeLigaRepository.findById(equipeLigaId).orElse(null);
+        Rodada rodada = rodadaRepository.findById(rodadaId).orElse(null);
+        if (equipeLiga == null || rodada == null) return;
+
+        DesempenhoEquipeFantasy registro = new DesempenhoEquipeFantasy();
+        registro.setEquipeLiga(equipeLiga);
+        registro.setRodada(rodada);
+        registro.setPontuacaoRodada(pontuacaoRodadaTotal);
+        desempenhoEquipeFantasyRepository.save(registro);
+
+        // Atualiza pontuação total da equipe a partir dos registros atuais
+        List<DesempenhoEquipeFantasy> resultadosEquipe = desempenhoEquipeFantasyRepository.findByEquipeLigaId(equipeLigaId);
+        double pontuacaoTotal = resultadosEquipe.stream()
+            .mapToDouble(d -> d.getPontuacaoRodada() == null ? 0.0 : d.getPontuacaoRodada())
+            .sum();
+        equipeLiga.setPontuacaoTotal(pontuacaoTotal);
+        equipeLigaRepository.save(equipeLiga);
+        }
 
     private double calcularPontosCalculados(DesempenhoAtleta desempenho, List<RegraPontuacaoLiga> regras) {
         return regras.stream()
@@ -233,6 +240,16 @@ public class GameRulesService {
             ent.setValorAtualizado(valorAtualizado);
 
             desempenhoAtletaLigaRepository.save(ent);
+            // Após atualizar o desempenho do atleta na liga, atualiza a pontuação da(s) equipe(s) que
+            // têm esse atleta escalado na rodada, para que a pontuação agregada reflita a mudança.
+            List<Escalacao> escalacoesDoAtleta = escalacaoRepository.findByAtletaIdAndRodadaId(atleta.getId(), rodada.getId());
+            if (escalacoesDoAtleta != null && !escalacoesDoAtleta.isEmpty()) {
+                for (Escalacao esc : escalacoesDoAtleta) {
+                    if (esc.getEquipeLiga() != null && esc.getEquipeLiga().getId() != null) {
+                        updatePontuacaoEquipeParaRodada(esc.getEquipeLiga().getId(), rodada.getId());
+                    }
+                }
+            }
         }
     }
 }

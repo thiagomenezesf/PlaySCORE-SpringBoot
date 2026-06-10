@@ -16,7 +16,7 @@ import type { Atleta } from '@/types'
 import { Toaster } from '@/components/ui/toaster'
 import { X } from 'lucide-react'
 import { layoutsPorTipo, tiposJogo, posicaoLabels, posicaoColors } from '@/lib/jogo-config'
-import { calcularPontosAtleta, calcularValorAtualizado, calcularPontuacaoEquipe } from '@/lib/game-utils'
+import { calcularPontosAtleta, calcularPontuacaoEquipe } from '@/lib/game-utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 type JogadorEscalado = {
@@ -28,13 +28,6 @@ type JogadorEscalado = {
   isCapitao: boolean
   pontuacao?: number
   foto?: string
-}
-
-/* ================= MOCKS ================= */
-
-// 🔥 MOCK pontuação jogador (fallback quando não há desempenho)
-const getPontuacaoJogador = (_id: number) => {
-  return Number((Math.random() * 10).toFixed(2))
 }
 
 export default function EscalacaoPage() {
@@ -50,12 +43,19 @@ export default function EscalacaoPage() {
   const [apiEscalacao, setApiEscalacao] = useState<any[] | null>(null)
   const [apiRodadas, setApiRodadas] = useState<any[] | null>(null)
   const [apiCampeonatos, setApiCampeonatos] = useState<any[] | null>(null)
-  const [apiCampeonatoRodadas, setApiCampeonatoRodadas] = useState<any[] | null>(null)
+  const [apiCampeonatoRodadaAtual, setApiCampeonatoRodadaAtual] = useState<any | null>(null)
   const [apiDesempenhoAtleta, setApiDesempenhoAtleta] = useState<any[] | null>(null)
   const [apiDesempenhoEquipeFantasy, setApiDesempenhoEquipeFantasy] = useState<any[] | null>(null)
   const [apiEquipesFantasy, setApiEquipesFantasy] = useState<any[] | null>(null)
   const [apiLigas, setApiLigas] = useState<any[] | null>(null)
   const [apiEquipeLiga, setApiEquipeLiga] = useState<any[] | null>(null)
+  
+  // UI state hooks - moved BEFORE early returns
+  const [searchTerm, setSearchTerm] = useState('')
+  const [formacao, setFormacao] = useState<any>(null)
+  const [time, setTime] = useState<any>(null)
+  const [posicaoFiltro, setPosicaoFiltro] = useState<Atleta['posicao'] | 'ALL'>('ALL')
+  const [slotSelecionado, setSlotSelecionado] = useState<Atleta['posicao'] | null>(null)
 
   useEffect(() => {
     const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
@@ -66,20 +66,7 @@ export default function EscalacaoPage() {
     api.listEscalacoes().then((d) => setApiEscalacao(d)).catch(() => null)
     api.listRodadas().then((d) => setApiRodadas(d)).catch(() => null)
     api.listCampeonatos().then((d) => setApiCampeonatos(d)).catch(() => null)
-    api.listCampeonatoRodadas().then((d) => setApiCampeonatoRodadas(d)).catch(() => null)
-    api.listDesempenhoAtletaLiga().then((d) => {
-      const merged = (d || []).map((item: any) => {
-        const base = item.desempenhoAtleta || {}
-        return {
-          ...base,
-          pontosCalculados: item.pontosCalculados ?? 0,
-          valorAtualizado: item.valorAtualizado ?? 0,
-          rodada: item.rodada,
-          atleta: base.atleta || item.desempenhoAtleta?.atleta,
-        }
-      })
-      setApiDesempenhoAtleta(merged)
-    }).catch(() => null)
+    api.listDesempenhoAtletaLiga().then((d) => setApiDesempenhoAtleta(d)).catch(() => null)
     api.listDesempenhoEquipeFantasy().then((d) => setApiDesempenhoEquipeFantasy(d)).catch(() => null)
     api.listEquipesFantasy().then((d) => setApiEquipesFantasy(d)).catch(() => null)
     api.listLigas().then((d) => setApiLigas(d)).catch(() => null)
@@ -90,7 +77,6 @@ export default function EscalacaoPage() {
   const clubesSource = apiClubes ?? []
   const escalacoesSource = apiEscalacao ?? []
   const rodadasSource = apiRodadas ?? []
-  const campeonatoRodadasSource = apiCampeonatoRodadas ?? []
   const desempenhoAtletaSource = apiDesempenhoAtleta ?? []
   const desempenhoEquipeFantasySource = apiDesempenhoEquipeFantasy ?? []
   const equipesFantasySource = apiEquipesFantasy ?? []
@@ -100,15 +86,24 @@ export default function EscalacaoPage() {
   const liga = ligasSource.find(l => l.id === ligaIdNumber)
   const campeonatosSource = apiCampeonatos ?? []
   const campeonato = liga ? (campeonatosSource.find(c => c.id === liga.idCampeonato) ?? null) : null
+
+  useEffect(() => {
+    const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+    if (useMocks) return
+    if (!campeonato?.id) return
+
+    api.getCampeonatoRodadaAtual(campeonato.id)
+      .then((d) => setApiCampeonatoRodadaAtual(d))
+      .catch(() => null)
+  }, [campeonato])
+
   const equipeFantasy = equipesFantasySource.find(equipe => equipe.idUsuario === user?.id)
   const equipeLiga = liga && equipeFantasy ? equipeLigaSource.find(el => el.idLiga === liga.id && el.idEquipeFantasy === equipeFantasy.id) : null
   
-  // Verificar a rodada atual do campeonato via relacionamento campeonatoRodada
-  const rodasLiga = liga ? rodadasSource.filter(r => r.idCampeonato === liga.idCampeonato) : []
-  const campeonatoRodada = campeonato ? campeonatoRodadasSource.find(cr => cr.idCampeonato === campeonato.id) : null
-  const rodadaAtual = campeonatoRodada
-    ? rodadasSource.find(r => r.id === campeonatoRodada.idRodada) ?? null
-    : rodasLiga.length > 0 ? rodasLiga[rodasLiga.length - 1] : null
+  // Verificar a rodada atual do campeonato usando o endpoint dedicado
+  const rodasLiga = liga ? rodadasSource.filter(r => r.campeonato?.id === liga.idCampeonato) : []
+  const campeonatoRodada = apiCampeonatoRodadaAtual
+  const rodadaAtual = campeonatoRodada?.rodada ?? (rodasLiga.length > 0 ? rodasLiga[rodasLiga.length - 1] : null)
   const mercadoFechado = rodadaAtual?.status !== 'ABERTO'
   
   // Carregar escalações existentes para esta rodada e equipe
@@ -136,8 +131,8 @@ export default function EscalacaoPage() {
           logo: clube?.logo || 'https://i.pravatar.cc/100?img=99',
           idCampeonato: clube?.idCampeonato || 0
         },
-        pontuacao: pontos || getPontuacaoJogador(atleta.id),
-        valorAtualizado: calcularValorAtualizado(atleta.precoInicial, desempenho)
+        pontuacao: pontos,
+        valorAtualizado: desempenho?.valorAtual ?? desempenho?.valorAtualizado ?? atleta.precoInicial
       } as Atleta & { clube: any; pontuacao: number; valorAtualizado: number }
     })
     .filter(a => {
@@ -146,20 +141,6 @@ export default function EscalacaoPage() {
       return a.clube?.idCampeonato === liga.idCampeonato
     })
   
-  // Loading states
-  if (!user) {
-    return <div className="p-6">Carregando usuário...</div>
-  }
-
-  if (!liga) {
-    return <div className="p-6">Liga não encontrada</div>
-  }
-
-  if (!campeonato) {
-    return <div className="p-6">Campeonato não encontrado</div>
-  }
-
-
   // Determinar configuração do jogo baseado no campeonato
   const tipoJogo = (campeonato?.tipoJogo as 'CAMPO' | 'FUTSAL' | 'FUT7') || 'CAMPO'
   const configJogo = tiposJogo[tipoJogo]
@@ -176,10 +157,10 @@ export default function EscalacaoPage() {
       id: atletaId,
       nome: atleta?.nome || '',
       posicao: (atleta?.posicao || 'GOL') as Atleta['posicao'],
-      preco: calcularValorAtualizado(atleta?.precoInicial || 0, desempenhoAtletaCarregado),
+      preco: (desempenhoAtletaCarregado?.valorAtual ?? desempenhoAtletaCarregado?.valorAtualizado ?? atleta?.precoInicial) || 0,
       clube: clube?.nome || '',
       isCapitao: escalacoesExistentes.find(e => e.idAtleta === atletaId)?.isCapitao || false,
-      pontuacao: calcularPontosAtleta(atletaId, rodadaAtual?.id ?? null, desempenhoAtletaSource) || getPontuacaoJogador(atletaId),
+      pontuacao: calcularPontosAtleta(atletaId, rodadaAtual?.id ?? null, desempenhoAtletaSource),
       foto: atleta?.foto
     }
   })
@@ -191,18 +172,22 @@ export default function EscalacaoPage() {
     escalados: atletasEscaladosCarregados,
   }
 
-  const [searchTerm, setSearchTerm] = useState('')
-  const [formacao, setFormacao] = useState(configJogo.formacoes[0])
+  // Initialize formacao and time when campeonato is ready
+  useEffect(() => {
+    if (campeonato && configJogo?.formacoes?.length > 0) {
+      setFormacao(configJogo.formacoes[0])
+    }
+  }, [campeonato])
 
-  const [time, setTime] = useState(mockMeuTime)
-
-  // Atualizar time quando os dados mudam
+  // Update time when derived data changes
   useEffect(() => {
     setTime(mockMeuTime)
-  }, [mockMeuTime.patrimonio, mockMeuTime.nome])
+  }, [mockMeuTime.patrimonio, mockMeuTime.nome, mockMeuTime.pontuacaoTotal, mockMeuTime.escalados.length])
 
-  const [posicaoFiltro, setPosicaoFiltro] = useState<Atleta['posicao'] | 'ALL'>('ALL')
-  const [slotSelecionado, setSlotSelecionado] = useState<Atleta['posicao'] | null>(null)
+  // Guard against missing data
+  if (!user || !liga || !campeonato || !formacao || !time) {
+    return <div className="p-6">Carregando...</div>
+  }
 
   const layoutAtual = layoutsPorTipo[tipoJogo][formacao.nome]
 
@@ -210,22 +195,22 @@ export default function EscalacaoPage() {
     return <div>Layout não encontrado</div>
   }
 
-  const gastoTotal = time.escalados.reduce((acc, a) => acc + a.preco, 0)
+  const gastoTotal = time.escalados.reduce((acc: number, a: any) => acc + a.preco, 0)
   const patrimonioRestante = time.patrimonio - gastoTotal
   const rodadaTemPontuacao = time.pontuacaoTotal !== null
 
   const totalJogadores = Object.values(formacao.estrutura)
-  .reduce((acc, val) => acc + (val || 0), 0)
+  .reduce((acc: number, val: any) => acc + (val || 0), 0)
 
   const adicionarJogador = (atleta: Atleta) => {
   const pos = atleta.posicao
   const limite = formacao.estrutura[pos]
 
-  const jogadoresPos = time.escalados.filter(a => a.posicao === pos)
+  const jogadoresPos = time.escalados.filter((a: any) => a.posicao === pos)
 
   if (limite != null && jogadoresPos.length >= limite) return
 
-  const jaExiste = time.escalados.some(a => a.id === atleta.id)
+  const jaExiste = time.escalados.some((a: any) => a.id === atleta.id)
 
   if (jaExiste) return
 
@@ -247,13 +232,13 @@ export default function EscalacaoPage() {
 }
 
   const removerJogador = (id: number) => {
-    setTime({ ...time, escalados: time.escalados.filter(a => a.id !== id) })
+    setTime({ ...time, escalados: time.escalados.filter((a: any) => a.id !== id) })
   }
 
   const definirCapitao = (id: number) => {
     setTime({
       ...time,
-      escalados: time.escalados.map(a => ({
+      escalados: time.escalados.map((a: any) => ({
         ...a,
         isCapitao: a.id === id
       }))
@@ -266,7 +251,7 @@ export default function EscalacaoPage() {
 
   const handleSalvar = async () => {
     const formacaoCompleta = (Object.entries(formacao.estrutura) as [Atleta['posicao'], number][]) 
-      .every(([pos, limite]) => time.escalados.filter(a => a.posicao === pos).length === limite)
+      .every(([pos, limite]) => time.escalados.filter((a: any) => a.posicao === pos).length === limite)
 
     if (!formacaoCompleta) {
       toast({
@@ -287,14 +272,18 @@ export default function EscalacaoPage() {
     }
 
     try {
-      // Envia uma requisição para cada jogador escalado
-      await Promise.all(time.escalados.map(j => api.createEscalacao({
+      // Deleta e recria a escalação inteira para evitar duplicação de registros
+      await api.createEscalacaoBatch(time.escalados.map((j: any) => ({
         idAtleta: j.id,
         idRodada: rodadaAtual.id,
         idEquipeLiga: equipeLiga.id,
         idEquipeFantasy: equipeFantasy.id,
         isCapitao: !!j.isCapitao
-      })))
+      })));
+
+      // Atualiza a escalação em memória após salvar
+      const escalacoesAtualizadas = await api.listEscalacoes();
+      setApiEscalacao(escalacoesAtualizadas);
 
       toast({
         title: 'Escalação salva',
@@ -311,7 +300,7 @@ export default function EscalacaoPage() {
   }
 
   const getJogadores = (pos: Atleta['posicao']) =>
-    time.escalados.filter(a => a.posicao === pos)
+    time.escalados.filter((a: any) => a.posicao === pos)
 
   const mercadoFiltrado = mercado
     .filter(a => a.nome.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -364,7 +353,7 @@ export default function EscalacaoPage() {
           <div className="p-2 rounded bg-yellow-500/20 border border-yellow-500/30">
             <TrendingUp className="text-yellow-400" />
           </div>
-          <div><p className="text-sm">Gasto</p><p className="font-bold">C$ {gastoTotal}</p></div>
+          <div><p className="text-sm">Gasto</p><p className="font-bold">C$ {gastoTotal.toFixed(2)}</p></div>
         </CardContent></Card>
 
         <Card><CardContent className="p-4 flex gap-3 items-center">
@@ -392,7 +381,12 @@ export default function EscalacaoPage() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Meu Time Fantasy</CardTitle>
+              <div>
+                <CardTitle>Meu Time Fantasy</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {rodadaAtual ? `Rodada ${rodadaAtual.numero} · ${rodadaAtual.status}` : 'Rodada não definida'}
+                </p>
+              </div>
               <CardTitle className="text-green-700 text-[1.5rem] font-bold">
                 {rodadaTemPontuacao
                   ? `${time.pontuacaoTotal} pts`
@@ -410,7 +404,7 @@ export default function EscalacaoPage() {
 
                   const excedeu = Object.entries(novaFormacao.estrutura).some(
                     ([pos, limite]) => {
-                      const qtd = time.escalados.filter(j => j.posicao === pos).length
+                      const qtd = time.escalados.filter((j: any) => j.posicao === pos).length
                       return qtd > limite
                     }
                   )
@@ -542,9 +536,9 @@ export default function EscalacaoPage() {
             </Select>
 
             {mercadoFiltrado.map(a => {
-              const jaEscalado = time.escalados.some(j => j.id === a.id)
+              const jaEscalado = time.escalados.some((j: any) => j.id === a.id)
 
-              const jogadoresPos = time.escalados.filter(j => j.posicao === a.posicao)
+              const jogadoresPos = time.escalados.filter((j: any) => j.posicao === a.posicao)
               const limitePosicao = formacao.estrutura[a.posicao]
               const limiteAtingido = limitePosicao != null && jogadoresPos.length >= limitePosicao
               const semDinheiro = a.valorAtualizado > patrimonioRestante

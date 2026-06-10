@@ -28,12 +28,61 @@ function normalizeLiga(l: any) {
   };
 }
 
+function normalizeEquipeFantasy(e: any) {
+  return {
+    ...e,
+    idUsuario: Number(e.criador?.id ?? e.idUsuario ?? 0),
+  };
+}
+
 function normalizeEquipeLiga(e: any) {
   return {
     ...e,
     idLiga: Number(e.liga?.id ?? e.idLiga ?? 0),
     idEquipeFantasy: Number(e.equipeFantasy?.id ?? e.idEquipeFantasy ?? 0),
     patrimonio: Number(e.patrimonio ?? 0),
+  };
+}
+
+function normalizeDesempenhoAtletaLiga(item: any) {
+  const desempenhoAtleta = item.desempenhoAtleta || {}
+  return {
+    ...desempenhoAtleta,
+    id: Number(item.id ?? 0),
+    idAtleta: Number(desempenhoAtleta.id ?? item.idAtleta ?? 0),
+    idRodada: Number(item.rodada?.id ?? item.idRodada ?? 0),
+    pontosCalculados: Number(item.pontosCalculados ?? 0),
+    valorAtual: Number(item.valorAtual ?? 0),
+    valorAtualizado: Number(item.valorAtualizado ?? 0),
+    rodada: item.rodada,
+    liga: item.liga,
+    desempenhoAtleta,
+  };
+}
+
+function normalizeDesempenhoEquipeFantasy(item: any) {
+  const equipeLiga = item.equipeLiga || {}
+  return {
+    ...item,
+    idRodada: Number(item.rodada?.id ?? item.idRodada ?? 0),
+    idEquipeLiga: Number(equipeLiga.id ?? item.idEquipeLiga ?? 0),
+    idLiga: Number(equipeLiga.liga?.id ?? item.idLiga ?? 0),
+    idEquipeFantasy: Number(equipeLiga.equipeFantasy?.id ?? item.idEquipeFantasy ?? 0),
+    idDesempenhoAtleta: Number(item.desempenhoAtleta?.id ?? item.idDesempenhoAtleta ?? 0),
+    pontuacaoRodada: Number(item.pontuacaoRodada ?? 0),
+    equipeLiga,
+    rodada: item.rodada,
+  };
+}
+
+function normalizeEscalacao(e: any) {
+  return {
+    ...e,
+    idAtleta: Number(e.atleta?.id ?? e.idAtleta ?? 0),
+    idRodada: Number(e.rodada?.id ?? e.idRodada ?? 0),
+    idEquipeLiga: Number(e.equipeLiga?.id ?? e.idEquipeLiga ?? 0),
+    idEquipeFantasy: Number(e.equipeFantasy?.id ?? e.idEquipeFantasy ?? 0),
+    isCapitao: e.isCapitao ?? false,
   };
 }
 
@@ -80,8 +129,12 @@ export const api = {
   deleteCampeonato: (id: number) => request(`/campeonatos/${id}`, { method: 'DELETE' }),
 
   // Escalações
-  listEscalacoes: () => request('/escalacoes'),
+  listEscalacoes: async () => {
+    const data = await request('/escalacoes');
+    return Array.isArray(data) ? data.map(normalizeEscalacao) : [];
+  },
   createEscalacao: (body: any) => request('/escalacoes', { method: 'POST', body: JSON.stringify(body) }),
+  createEscalacaoBatch: (body: any) => request('/escalacoes/batch', { method: 'POST', body: JSON.stringify(body) }),
 
   // Rodada fechar
   fecharRodada: (id: number) => request(`/rodadas/${id}/fechar`, { method: 'POST' }),
@@ -116,18 +169,27 @@ export const api = {
   listDesempenhoAtleta: () => request('/desempenho-atleta'),
   createDesempenhoAtleta: (body: any) => request('/desempenho-atleta', { method: 'POST', body: JSON.stringify(body) }),
   createDesempenhoAtletaBatch: (body: any) => request('/desempenho-atleta/batch', { method: 'POST', body: JSON.stringify(body) }),
-  listDesempenhoAtletaLiga: () => request('/desempenho-atleta-liga'),
+  listDesempenhoAtletaLiga: async () => {
+    const data = await request('/desempenho-atleta-liga');
+    return Array.isArray(data) ? data.map(normalizeDesempenhoAtletaLiga) : [];
+  },
   getDesempenhoAtletaLiga: (id: number) => request(`/desempenho-atleta-liga/${id}`),
   createDesempenhoAtletaLiga: (body: any) => request('/desempenho-atleta-liga', { method: 'POST', body: JSON.stringify(body) }),
-  listDesempenhoEquipeFantasy: () => request('/desempenho-equipe-fantasy'),
+  listDesempenhoEquipeFantasy: async () => {
+    const data = await request('/desempenho-equipe-fantasy');
+    return Array.isArray(data) ? data.map(normalizeDesempenhoEquipeFantasy) : [];
+  },
   listRegraPontuacaoLiga: async () => {
     const data = await request('/regras-pontuacao-liga');
     return Array.isArray(data) ? data : [];
   },
-  listEquipesFantasy: () => request('/equipe-fantasy'),
-  getEquipeFantasy: (id: number) => request(`/equipe-fantasy/${id}`),
+  listEquipesFantasy: async () => {
+    const data = await request('/equipe-fantasy');
+    return Array.isArray(data) ? data.map(normalizeEquipeFantasy) : [];
+  },
+  getEquipeFantasy: async (id: number) => normalizeEquipeFantasy(await request(`/equipe-fantasy/${id}`)),
   updateEquipeFantasy: (id: number, body: any) => request(`/equipe-fantasy/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
-  createEquipeFantasy: (body: any) => request('/equipe-fantasy', { method: 'POST', body: JSON.stringify(body) }),
+  createEquipeFantasy: async (body: any) => normalizeEquipeFantasy(await request('/equipe-fantasy', { method: 'POST', body: JSON.stringify(body) })),
   listLigas: async () => {
     const data = await request('/ligas');
     return Array.isArray(data) ? data.map(normalizeLiga) : [];
