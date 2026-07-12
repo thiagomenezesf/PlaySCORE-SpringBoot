@@ -2,6 +2,8 @@ package projetotcc.thiago.PlaySCORE_API.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "equipe_liga")
@@ -23,4 +25,13 @@ public class EquipeLiga {
     @ManyToOne
     @JoinColumn(name = "equipeFantasy_id", nullable = false)
     private EquipeFantasy equipeFantasy;
+
+    // Relacionamentos com cascade delete para garantir integridade referencial
+    @JsonIgnore
+    @OneToMany(mappedBy = "equipeLiga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DesempenhoEquipeFantasy> desempenhosEquipeFantasy;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "equipeLiga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Escalacao> escalacoes;
 }

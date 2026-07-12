@@ -35,4 +35,9 @@ public class EscalacaoController {
     public java.util.List<Escalacao> salvarEmLote(@RequestBody java.util.List<EscalacaoRequest> requests) {
         return escalacaoService.salvarEmLote(requests);
     }
+
+    @PutMapping("/{id}")
+    public Escalacao atualizar(@PathVariable String id, @Valid @RequestBody EscalacaoRequest request) {
+        return escalacaoService.atualizar(id, request);
+    }
 }

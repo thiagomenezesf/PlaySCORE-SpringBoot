@@ -50,7 +50,7 @@ export function DashboardHeader({ userName = 'Usuario' }: DashboardHeaderProps) 
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>Notificacoes</DropdownMenuLabel>
+            <DropdownMenuLabel>Notificações</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
               <span className="font-medium">Nova rodada iniciada</span>
@@ -59,9 +59,9 @@ export function DashboardHeader({ userName = 'Usuario' }: DashboardHeaderProps) 
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
-              <span className="font-medium">Voce subiu no ranking!</span>
+              <span className="font-medium">Você subiu no ranking!</span>
               <span className="text-xs text-muted-foreground">
-                Parabens! Voce esta em 3o lugar na Liga dos Amigos.
+                Parabens! Você está em 3° lugar na Liga dos Amigos.
               </span>
             </DropdownMenuItem>
             <DropdownMenuItem className="flex flex-col items-start gap-1 py-3">
@@ -90,7 +90,7 @@ export function DashboardHeader({ userName = 'Usuario' }: DashboardHeaderProps) 
               <Link to="/perfil">Perfil</Link>
             </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link to="/configuracoes">Configuracoes</Link>
+              <Link to="/configuracoes">Configurações</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive">

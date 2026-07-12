@@ -2,6 +2,7 @@ package projetotcc.thiago.PlaySCORE_API.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import projetotcc.thiago.PlaySCORE_API.dto.RodadaRequest;
 import projetotcc.thiago.PlaySCORE_API.exception.ResourceNotFoundException;
 import projetotcc.thiago.PlaySCORE_API.model.Campeonato;
@@ -44,5 +45,11 @@ public class RodadaService {
         Rodada rodada = buscarPorId(id);
         rodada.setStatus("ABERTO");
         return rodadaRepository.save(rodada);
+    }
+
+    @Transactional
+    public void deletar(Long id) {
+        Rodada rodada = buscarPorId(id);
+        rodadaRepository.delete(rodada);
     }
 }

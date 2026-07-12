@@ -78,7 +78,9 @@ public class LigaService {
         EquipeLiga equipeLiga = new EquipeLiga();
         equipeLiga.setLiga(liga);
         equipeLiga.setEquipeFantasy(equipeFantasy);
-        equipeLiga.setPatrimonio(equipeFantasy.getPatrimonio());
+        // Patrimonio inicial baseado no tipo de jogo do campeonato
+        Double patrimonioInicial = getPatrimonioInicial(campeonato.getTipoJogo());
+        equipeLiga.setPatrimonio(patrimonioInicial);
 
         equipeLigaRepository.save(equipeLiga);
 
@@ -109,6 +111,25 @@ public class LigaService {
         equipeLigaRepository.deleteAll(equipeLigaRepository.findByLigaId(liga.getId()));
 
         ligaRepository.delete(liga);
+    }
+
+    /**
+     * Retorna o patrimonio inicial baseado no tipo de jogo:
+     * - FUTSAL: 46
+     * - FUT7: 65
+     * - CAMPO: 100 (padrão)
+     */
+    private Double getPatrimonioInicial(String tipoJogo) {
+        if (tipoJogo == null) {
+            return 100.0;
+        }
+
+        return switch (tipoJogo.toUpperCase()) {
+            case "FUTSAL" -> 46.0;
+            case "FUT7" -> 65.0;
+            case "CAMPO" -> 100.0;
+            default -> 100.0;
+        };
     }
 }
 

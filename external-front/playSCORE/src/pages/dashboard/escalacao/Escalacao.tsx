@@ -58,8 +58,9 @@ export default function EscalacaoPage() {
   const [slotSelecionado, setSlotSelecionado] = useState<Atleta['posicao'] | null>(null)
 
   useEffect(() => {
-    const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
-    if (useMocks) return
+  
+    // const useMocks = import.meta.env.VITE_USE_MOCKS === 'true'
+    // if (useMocks) return
 
     api.listAtletas().then((d) => setApiAtletas(d)).catch(() => null)
     api.listClubes().then((d) => setApiClubes(d)).catch(() => null)
@@ -94,7 +95,9 @@ export default function EscalacaoPage() {
 
     api.getCampeonatoRodadaAtual(campeonato.id)
       .then((d) => setApiCampeonatoRodadaAtual(d))
-      .catch(() => null)
+      .catch(() => null).then((d) => {
+  setApiCampeonatoRodadaAtual(d)
+})
   }, [campeonato])
 
   const equipeFantasy = equipesFantasySource.find(equipe => equipe.idUsuario === user?.id)
@@ -120,9 +123,10 @@ export default function EscalacaoPage() {
     .map(atleta => {
       const clube = clubesSource.find(c => c.id === atleta.idClube)
       const desempenho = rodadaAtual
-        ? desempenhoAtletaSource.find(d => d.idAtleta === atleta.id && d.idRodada === rodadaAtual.id)
+        ? apiDesempenhoAtleta?.find(d => d.atleta?.id === atleta.id && d.rodada?.id === rodadaAtual.id)
         : undefined
-      const pontos = calcularPontosAtleta(atleta.id, rodadaAtual?.id ?? null, desempenhoAtletaSource)
+      //const pontos = calcularPontosAtleta(atleta.id, rodadaAtual?.id ?? null, desempenhoAtletaSource)
+      const pontos = apiDesempenhoAtleta?.find(d => d.atleta?.id === atleta.id && d.rodada?.id === rodadaAtual?.id)?.pontosCalculados ?? 0
       return {
         ...atleta,
         clube: {
@@ -132,7 +136,7 @@ export default function EscalacaoPage() {
           idCampeonato: clube?.idCampeonato || 0
         },
         pontuacao: pontos,
-        valorAtualizado: desempenho?.valorAtual ?? desempenho?.valorAtualizado ?? atleta.precoInicial
+        valorAtualizado: desempenho?.valorAtual ?? 0
       } as Atleta & { clube: any; pontuacao: number; valorAtualizado: number }
     })
     .filter(a => {
@@ -164,10 +168,11 @@ export default function EscalacaoPage() {
       foto: atleta?.foto
     }
   })
+  
 
   const mockMeuTime = {
     nome: equipeFantasy?.nome || 'Meu Time FC',
-    patrimonio: equipeLiga?.patrimonio || 100,
+    patrimonio: equipeLiga?.patrimonio || 0,
     pontuacaoTotal: equipePontuacaoTotal,
     escalados: atletasEscaladosCarregados,
   }
@@ -280,6 +285,7 @@ export default function EscalacaoPage() {
         idEquipeFantasy: equipeFantasy.id,
         isCapitao: !!j.isCapitao
       })));
+      console.log("SALVANDO ESCALACAO", apiEscalacao)
 
       // Atualiza a escalação em memória após salvar
       const escalacoesAtualizadas = await api.listEscalacoes();
@@ -346,14 +352,14 @@ export default function EscalacaoPage() {
           <div className="p-2 rounded bg-green-500/20 border border-green-500/30">
             <DollarSign className="text-green-400" />
           </div>
-          <div><p className="text-sm">Patrimônio Restante</p><p className="font-bold">C$ {patrimonioRestante.toFixed(2)}</p></div>
+          <div><p className="text-sm">Patrimônio Restante</p><p className="font-bold">SC$ {patrimonioRestante.toFixed(2)}</p></div>
         </CardContent></Card>
 
         <Card><CardContent className="p-4 flex gap-3 items-center">
           <div className="p-2 rounded bg-yellow-500/20 border border-yellow-500/30">
             <TrendingUp className="text-yellow-400" />
           </div>
-          <div><p className="text-sm">Gasto</p><p className="font-bold">C$ {gastoTotal.toFixed(2)}</p></div>
+          <div><p className="text-sm">Gasto</p><p className="font-bold">SC$ {gastoTotal.toFixed(2)}</p></div>
         </CardContent></Card>
 
         <Card><CardContent className="p-4 flex gap-3 items-center">

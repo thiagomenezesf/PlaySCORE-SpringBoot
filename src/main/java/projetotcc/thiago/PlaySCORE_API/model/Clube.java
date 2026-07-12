@@ -27,6 +27,6 @@ public class Clube {
     private Campeonato campeonato;
 
     @JsonIgnore
-    @OneToMany(mappedBy = "clube")
+    @OneToMany(mappedBy = "clube", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<Atleta> atletas;
 }

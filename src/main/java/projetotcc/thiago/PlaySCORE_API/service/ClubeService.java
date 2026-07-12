@@ -2,6 +2,7 @@ package projetotcc.thiago.PlaySCORE_API.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import projetotcc.thiago.PlaySCORE_API.dto.ClubeRequest;
 import projetotcc.thiago.PlaySCORE_API.exception.ResourceNotFoundException;
 import projetotcc.thiago.PlaySCORE_API.model.Campeonato;
@@ -54,6 +55,7 @@ public class ClubeService {
         return clubeRepository.save(clube);
     }
 
+    @Transactional
     public void deletar(Long id) {
         Clube clube = buscarPorId(id);
         clubeRepository.delete(clube);

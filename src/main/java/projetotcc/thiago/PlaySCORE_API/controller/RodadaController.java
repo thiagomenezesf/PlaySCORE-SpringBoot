@@ -46,4 +46,9 @@ public class RodadaController {
     public Rodada abrirRodada(@PathVariable Long id) {
         return rodadaService.abrirRodada(id);
     }
+
+    @DeleteMapping("/{id}")
+    public void deletar(@PathVariable Long id) {
+        rodadaService.deletar(id);
+    }
 }

@@ -2,6 +2,8 @@ package projetotcc.thiago.PlaySCORE_API.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "desempenho_atleta") // Nome corrigido
@@ -33,4 +35,9 @@ public class DesempenhoAtleta {
     @ManyToOne // Um atleta pode ter vários desempenhos (um para cada rodada que jogou)
     @JoinColumn(name = "atleta_id")
     private Atleta atleta;
+
+    // Relacionamentos com cascade delete para garantir integridade referencial
+    @JsonIgnore
+    @OneToMany(mappedBy = "desempenhoAtleta", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DesempenhoAtletaLiga> desempenhosAtletasLiga;
 }

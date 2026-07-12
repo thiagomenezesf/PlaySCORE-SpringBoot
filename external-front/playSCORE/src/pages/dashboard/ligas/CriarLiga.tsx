@@ -199,7 +199,7 @@ export default function CriarLigaPage() {
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="maxParticipantes">Maximo de Participantes</FieldLabel>
+                <FieldLabel htmlFor="maxParticipantes">Máximo de Participantes</FieldLabel>
                 <Input
                   id="maxParticipantes"
                   type="number"

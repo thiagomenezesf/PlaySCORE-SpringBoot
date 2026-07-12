@@ -247,6 +247,12 @@ public class CampeonatoRodadaService {
         java.util.List<Escalacao> escalacoesAnterior = escalacaoRepository.findByRodadaId(rodadaAnterior.getId());
         if (escalacoesAnterior.isEmpty()) return;
 
+        // DELETAR escalações da nova rodada para evitar duplicatas
+        java.util.List<Escalacao> escalacoesNovaRodada = escalacaoRepository.findByRodadaId(rodadaAtual.getId());
+        if (!escalacoesNovaRodada.isEmpty()) {
+            escalacaoRepository.deleteAll(escalacoesNovaRodada);
+        }
+
         // Copiar escalações para a nova rodada e recalcular patrimônio de cada equipe
         for (Escalacao escalaçãoAnterior : escalacoesAnterior) {
             Escalacao novaEscalacao = new Escalacao();
@@ -270,11 +276,36 @@ public class CampeonatoRodadaService {
             double patrimonioAtualizado = 0.0;
             for (Escalacao esc : escalacoes) {
                 Atleta atleta = esc.getAtleta();
-                java.util.Optional<DesempenhoAtletaLiga> desempenhoLiga = desempenhoAtletaLigaRepository
-                        .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(atleta.getId(), esc.getEquipeLiga().getLiga().getId(), rodadaAtual.getId());
-                if (desempenhoLiga.isPresent()) {
-                    Double valorAtual = desempenhoLiga.get().getValorAtual();
-                    patrimonioAtualizado += (valorAtual != null ? valorAtual : 0.0);
+                
+                // Primeiro buscar DesempenhoAtleta da nova rodada
+                java.util.List<DesempenhoAtleta> desempenhosAtleta = desempenhoAtletaRepository
+                        .findByAtletaIdAndRodadaId(atleta.getId(), rodadaAtual.getId());
+
+                if (!desempenhosAtleta.isEmpty()) {
+                    // Pegar o primeiro
+                    DesempenhoAtleta desempenhoAtleta = desempenhosAtleta.get(0);
+
+                    // Agora buscar DesempenhoAtletaLiga usando o ID correto
+                    java.util.Optional<DesempenhoAtletaLiga> desempenhoLiga = desempenhoAtletaLigaRepository
+                            .findByDesempenhoAtletaIdAndLigaIdAndRodadaId(
+                                    desempenhoAtleta.getId(),
+                                    esc.getEquipeLiga().getLiga().getId(),
+                                    rodadaAtual.getId()
+                            );
+                    if (desempenhoLiga.isPresent()) {
+                        Double valorAtual = desempenhoLiga.get().getValorAtual();
+                        patrimonioAtualizado += (valorAtual != null ? valorAtual : 0.0);
+                    } else {
+                        // Se não houver, usar preço inicial
+                        if (atleta.getPrecoInicial() != null) {
+                            patrimonioAtualizado += atleta.getPrecoInicial();
+                        }
+                    }
+                } else {
+                    // Se não houver desempenho, usar preço inicial
+                    if (atleta.getPrecoInicial() != null) {
+                        patrimonioAtualizado += atleta.getPrecoInicial();
+                    }
                 }
             }
 

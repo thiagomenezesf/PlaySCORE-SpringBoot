@@ -231,7 +231,7 @@ export default function CriarCampeonatoPage() {
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="descricao">Descricao</FieldLabel>
+                  <FieldLabel htmlFor="descricao">Descrição</FieldLabel>
                   <Textarea
                     id="descricao"
                     placeholder="Descreva seu campeonato..."
