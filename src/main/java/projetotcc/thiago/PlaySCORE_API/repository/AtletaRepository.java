@@ -8,4 +8,8 @@ import org.springframework.stereotype.Repository;
 public interface AtletaRepository extends JpaRepository<Atleta, Long> {
     // Aqui o Spring já te dá de graça os métodos:
     // save(), findAll(), findById(), delete()... sem você digitar nada!
+
+    java.util.List<Atleta> findByClubeIdIn(java.util.List<Long> clubeIds);
+    void deleteByClubeIdIn(java.util.List<Long> clubeIds);
+    long countByClubeIdIn(java.util.List<Long> clubeIds);
 }

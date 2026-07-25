@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "atleta")
@@ -25,8 +27,19 @@ public class Atleta {
     @NotNull(message = "O preço inicial deve ser definido")
     private Double precoInicial;
 
+    private Double precoAtual;
+
     // Relacionamento: O atleta pertence a uma equipe
     @ManyToOne
     @JoinColumn(name = "clube_id", nullable = false)
     private Clube clube;
+
+    // Relacionamentos com cascade delete para garantir integridade referencial
+    @JsonIgnore
+    @OneToMany(mappedBy = "atleta", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DesempenhoAtleta> desempenhosAtleta;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "atleta", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Escalacao> escalacoes;
 }

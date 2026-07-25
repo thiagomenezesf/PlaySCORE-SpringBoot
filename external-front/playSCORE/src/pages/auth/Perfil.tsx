@@ -1,0 +1,466 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Pencil, Save, X, ArrowLeft, Upload } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+import { useToast } from '@/hooks/use-toast'
+import { Toaster } from '@/components/ui/toaster'
+import api from '@/lib/api'
+
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { useAuth } from '@/hooks/use-auth'
+
+export default function Perfil() {
+  const navigate = useNavigate()
+  const { user, loginAs } = useAuth()
+
+  const { toast } = useToast()
+
+  const [equipesFantasy, setEquipesFantasy] = useState<any[]>([])
+  const [equipeLiga, setEquipeLiga] = useState<any[]>([])
+  const [ligas, setLigas] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [editando, setEditando] = useState(false)
+  const [editData, setEditData] = useState({
+    nomeEquipe: '',
+    nomeUsuario: '',
+    logo: '',
+  })
+  
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [equipes, equipeLigaData, ligasData] = await Promise.all([
+          api.listEquipesFantasy(),
+          api.listEquipeLiga(),
+          api.listLigas(),
+        ])
+        setEquipesFantasy(equipes)
+        setEquipeLiga(equipeLigaData)
+        setLigas(ligasData)
+      } catch (error) {
+        console.error('Erro ao carregar perfil', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadData()
+  }, [])
+
+  const equipeFantasy = equipesFantasy.find(
+    (e) =>
+      e?.idUsuario === user?.id ||
+      e?.criador?.id === user?.id
+  )
+
+  // quando user ou equipesFantasy mudarem, inicializa os campos editáveis
+  useEffect(() => {
+    if (!user) return
+
+    setEditData((prev) => ({
+      nomeEquipe: equipeFantasy?.nome ?? prev.nomeEquipe ?? '',
+      nomeUsuario: user?.nome ?? prev.nomeUsuario ?? '',
+      logo: equipeFantasy?.logo ?? prev.logo ?? '',
+    }))
+  }, [user, equipeFantasy])
+
+  if (!user || isLoading) {
+    return <div className="p-6">Carregando usuário...</div>
+  }
+
+  const equipesNaLiga = equipeLiga.filter(
+    (e) => e.idEquipeFantasy === equipeFantasy?.id
+  )
+
+  const ligasCount = equipesNaLiga.length
+
+  const pontosTotais = equipesNaLiga.reduce(
+    (acc, e) => acc + (e.pontuacaoTotal || 0),
+    0
+  )
+
+  let melhorLiga = { nome: '-', posicao: 0, logo: '' }
+
+  if (equipesNaLiga.length > 0) {
+    const melhor = [...equipesNaLiga].sort(
+      (a, b) =>
+        (b.pontuacaoTotal || 0) - (a.pontuacaoTotal || 0)
+    )[0]
+
+    const ligaInfo = ligas.find(
+      (l) => l.id === melhor.idLiga
+    )
+
+    const participantesDaLiga = equipeLiga
+      .filter((el) => el.idLiga === melhor.idLiga)
+      .sort(
+        (a, b) =>
+          (b.pontuacaoTotal || 0) - (a.pontuacaoTotal || 0)
+      )
+
+    const pos =
+      participantesDaLiga.findIndex(
+        (p) =>
+          p.idEquipeFantasy === melhor.idEquipeFantasy
+      ) + 1
+
+    melhorLiga = {
+      nome: ligaInfo?.nome || '-',
+      posicao: pos || 0,
+      logo: ligaInfo?.logo || '',
+    }
+  }
+
+  const handleSave = () => {
+  if (
+    !editData.nomeEquipe.trim() ||
+    !editData.nomeUsuario.trim()
+  ) {
+    toast({
+      title: 'Campos obrigatórios',
+      description: 'Preencha todos os campos para salvar!',
+      variant: 'destructive'
+    })
+
+    return
+  }
+
+  console.log('Salvar dados:', editData)
+  ;(async () => {
+    try {
+      // atualizar nome do usuário se alterado
+      if (user && editData.nomeUsuario !== user.nome) {
+        // pedir confirmação de senha para permitir alteração
+        const currentPassword = window.prompt('Digite sua senha atual para confirmar alteração do nome')
+        if (!currentPassword) {
+          toast({ title: 'Senha necessária', description: 'A senha atual é necessária para alterar o nome.', variant: 'destructive' })
+          return
+        }
+
+        // validar senha atual
+        try {
+          await api.loginUsuario({ email: user.email, senha: currentPassword })
+        } catch (e) {
+          toast({ title: 'Senha incorreta', description: 'A senha atual não confere.', variant: 'destructive' })
+          return
+        }
+
+        await api.updateUsuario(user.id, {
+          nome: editData.nomeUsuario,
+          email: user.email,
+          senha: currentPassword,
+        })
+      }
+
+      // atualizar equipe fantasy
+      if (equipeFantasy && equipeFantasy.id) {
+        await api.updateEquipeFantasy(equipeFantasy.id, {
+          nome: editData.nomeEquipe,
+          logo: editData.logo,
+          idUsuario: user.id,
+          patrimonio: equipeFantasy.patrimonio ?? 0,
+          titulos: equipeFantasy.titulos ?? 0,
+        })
+      }
+
+      // atualizar contexto de autenticação para refletir novo nome/email
+      if (user && typeof loginAs === 'function') {
+        try {
+          loginAs(user.id)
+        } catch (e) {
+          /* ignore */
+        }
+      }
+
+      toast({
+        title: 'Perfil Salvo',
+        description: 'Seu perfil foi editado com sucesso!'
+      })
+      setEditando(false)
+    } catch (error) {
+      console.error('Erro ao salvar perfil', error)
+      toast({
+        title: 'Erro ao salvar',
+        description: 'Não foi possível salvar o perfil no servidor.',
+        variant: 'destructive'
+      })
+    }
+  })()
+}
+
+  const handleCancel = () => {
+    setEditando(false)
+
+    if (user && equipeFantasy) {
+      setEditData({
+        nomeEquipe: equipeFantasy?.nome ?? '',
+        nomeUsuario: user?.nome ?? '',
+        logo: equipeFantasy?.logo ?? '',
+      })
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Toaster />
+      <div className="border-b border-border bg-card/50 backdrop-blur-sm">
+        <div className="max-w-6xl mx-auto px-4 py-6 flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/dashboard')}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-display font-bold">
+              Meu Perfil
+            </h1>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto p-6 space-y-6">
+        <Card>
+          <CardContent className="flex items-start justify-between p-6">
+            <div className="flex items-start gap-4">
+              <Avatar className="w-16 h-16">
+                <AvatarImage src={editData.logo} />
+
+                <AvatarFallback>
+                  {(editData.nomeEquipe?.charAt(0) ||
+                    user?.nome?.charAt(0) || '?')}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="space-y-3">
+                {!editando ? (
+                  <>
+                    <h2 className="text-xl font-bold">
+                      {editData.nomeEquipe || '--'}
+                    </h2>
+
+                    <p className="text-muted-foreground">
+                      {editData.nomeUsuario || '--'}
+                    </p>
+
+                    <p className="text-muted-foreground">
+                      {user?.email || '--'}
+                    </p>
+                  </>
+                ) : (
+                  <div className="space-y-4 min-w-[320px]">
+                    <div>
+                      <Label className='text-md font-bold'>Nome da Minha Equipe</Label>
+
+                      <Input
+                        value={editData.nomeEquipe}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            nomeEquipe: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <Label className='text-md font-bold'>Nome de Usuário</Label>
+
+                      <Input
+                        value={editData.nomeUsuario}
+                        onChange={(e) =>
+                          setEditData({
+                            ...editData,
+                            nomeUsuario: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <Label className='text-md font-bold'>Email</Label>
+
+                      <Input
+                        value={user.email}
+                        disabled
+                      />
+
+                      <p className="text-xs text-muted-foreground mt-1">
+                        O email só pode ser alterado na página de configurações.
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label>Logo da Equipe Fantasy</Label>
+
+                      <label className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer block mt-2">
+                        <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+
+                        <p className="text-xs text-muted-foreground">
+                          Clique para fazer upload
+                        </p>
+
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0]
+
+                            if (file) {
+                              try {
+                                // Mostrar preview temporário enquanto faz upload
+                                const tempPreview = URL.createObjectURL(file)
+                                setEditData({
+                                  ...editData,
+                                  logo: tempPreview,
+                                })
+
+                                // Fazer upload para servidor
+                                const formData = new FormData()
+                                formData.append('file', file)
+                                const uploadResponse = await api.uploadFile(formData)
+                                
+                                // Atualizar com URL persistente do servidor
+                                setEditData({
+                                  ...editData,
+                                  logo: uploadResponse.url,
+                                })
+                                
+                                // Limpar preview blob
+                                URL.revokeObjectURL(tempPreview)
+                              } catch (error) {
+                                console.error('Erro ao fazer upload da logo:', error)
+                                toast({
+                                  title: 'Erro no upload',
+                                  description: 'Não foi possível fazer upload da imagem.',
+                                  variant: 'destructive'
+                                })
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {editData.logo && (
+                        <img
+                          src={editData.logo}
+                          alt="Preview"
+                          className="mt-4 h-24 w-24 object-cover rounded-lg border"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {!editando ? (
+              <Button onClick={() => setEditando(true)}>
+                <Pencil className="w-4 h-4 mr-2" />
+                Editar
+              </Button>
+            ) : (
+              <div className="flex gap-2">
+                <Button onClick={handleSave}>
+                  <Save className="w-4 h-4 mr-2" />
+                  Salvar
+                </Button>
+
+                <Button
+                  variant="outline"
+                  onClick={handleCancel}
+                >
+                  <X className="w-4 h-4 mr-2" />
+                  Cancelar
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Estatísticas</CardTitle>
+          </CardHeader>
+
+          <CardContent className="grid md:grid-cols-5 gap-4">
+            <div className="p-4 bg-muted rounded">
+              <p className="text-sm text-muted-foreground mb-2">
+                Minha melhor liga
+              </p>
+
+              <div className="flex items-center gap-3">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={melhorLiga.logo} />
+
+                  <AvatarFallback>
+                    {(melhorLiga.nome && melhorLiga.nome !== '-' ? melhorLiga.nome.charAt(0) : '?')}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div>
+                  <p className="font-medium">
+                    {melhorLiga.nome || '--'}
+                  </p>
+
+                  <p className="text-sm text-muted-foreground">
+                    🏆 #{melhorLiga.posicao || '--'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 bg-muted rounded text-center">
+              <p className="text-sm text-muted-foreground">
+                Pontos
+              </p>
+
+              <p className="text-2xl font-bold text-primary">
+                {pontosTotais}
+              </p>
+            </div>
+
+            <div className="p-4 bg-muted rounded text-center">
+              <p className="text-sm text-muted-foreground">
+                Melhor posição
+              </p>
+
+              <p className="text-2xl font-bold">
+                #{melhorLiga.posicao || '-'}
+              </p>
+            </div>
+
+            <div className="p-4 bg-muted rounded text-center">
+              <p className="text-sm text-muted-foreground">
+                Ligas
+              </p>
+
+              <p className="text-2xl font-bold">
+                {ligasCount}
+              </p>
+            </div>
+
+            <div className="p-4 bg-muted rounded text-center">
+              <p className="text-sm text-muted-foreground">
+                Títulos
+              </p>
+
+              <p className="text-2xl font-bold text-yellow-400 flex items-center justify-center gap-1">
+                {equipeFantasy?.titulos ?? 0} 🏆
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}

@@ -8,4 +8,7 @@ import org.springframework.stereotype.Repository;
 public interface ClubeRepository extends JpaRepository<Clube, Long> {
     // Aqui o Spring já te dá de graça os métodos:
     // save(), findAll(), findById(), delete()... sem você digitar nada!
+
+    java.util.List<Clube> findByCampeonatoId(Long campeonatoId);
+    long countByCampeonatoId(Long campeonatoId);
 }

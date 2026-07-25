@@ -22,7 +22,4 @@ public class DesempenhoEquipeFantasy {
     @JoinColumn(name = "rodada_id")
     private Rodada rodada;
 
-    @ManyToOne
-    @JoinColumn(name = "desempenho_atleta_id")
-    private DesempenhoAtleta desempenhoAtleta;
 }

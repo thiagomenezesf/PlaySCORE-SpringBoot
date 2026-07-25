@@ -1,8 +1,9 @@
 package projetotcc.thiago.PlaySCORE_API.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "equipe_liga")
@@ -13,7 +14,6 @@ public class EquipeLiga {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @NotBlank(message = "Dê um nome à sua equipe")
     private Double patrimonio = 100.0; // Valor inicial para comprar atletas
 
     private Double pontuacaoTotal = 0.0; // Pontuação total acumulada da equipe na liga
@@ -25,4 +25,13 @@ public class EquipeLiga {
     @ManyToOne
     @JoinColumn(name = "equipeFantasy_id", nullable = false)
     private EquipeFantasy equipeFantasy;
+
+    // Relacionamentos com cascade delete para garantir integridade referencial
+    @JsonIgnore
+    @OneToMany(mappedBy = "equipeLiga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DesempenhoEquipeFantasy> desempenhosEquipeFantasy;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "equipeLiga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Escalacao> escalacoes;
 }

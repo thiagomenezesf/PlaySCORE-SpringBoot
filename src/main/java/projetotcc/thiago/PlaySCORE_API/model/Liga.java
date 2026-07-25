@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
+import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "liga")
@@ -35,4 +37,17 @@ public class Liga {
     @ManyToOne
     @JoinColumn(name = "campeonato_id")
     private Campeonato campeonato;
+
+    // Relacionamentos com cascade delete para garantir integridade referencial
+    @JsonIgnore
+    @OneToMany(mappedBy = "liga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<EquipeLiga> equipesLiga;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "liga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<RegraPontuacaoLiga> regrasPontuacao;
+
+    @JsonIgnore
+    @OneToMany(mappedBy = "liga", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DesempenhoAtletaLiga> desempenhosAtletasLiga;
 }

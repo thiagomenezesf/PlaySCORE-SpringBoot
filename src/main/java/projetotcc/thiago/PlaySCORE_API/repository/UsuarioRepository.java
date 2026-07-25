@@ -8,4 +8,8 @@ import org.springframework.stereotype.Repository;
 public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
     // Aqui o Spring já te dá de graça os métodos:
     // save(), findAll(), findById(), delete()... sem você digitar nada!
+
+    java.util.Optional<Usuario> findByEmail(String email);
+
+    boolean existsByEmail(String email);
 }
