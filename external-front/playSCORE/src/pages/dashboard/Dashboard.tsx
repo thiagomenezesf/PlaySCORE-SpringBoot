@@ -143,11 +143,13 @@ export default function DashboardPage() {
             </Button>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
-            {ligasComExtras.map((liga) => (
-              <LeagueCard
-                key={liga.id}
-                liga={liga}
-                isOwner={liga.idUsuarioCriador === 1}
+            {ligasComExtras
+            .filter((liga) => liga.idUsuarioCriador === user?.id)
+            .map((liga) => (
+              <LeagueCard 
+                key={liga.id} 
+                liga={liga} 
+                isOwner={true} 
               />
             ))}
           </div>

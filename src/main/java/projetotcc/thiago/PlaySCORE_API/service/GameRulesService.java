@@ -187,16 +187,17 @@ public class GameRulesService {
             return 0.0;
         }
 
-        double pontosAnteriores = desempenhoAnteriorLigaOpt
-                .map(DesempenhoAtletaLiga::getPontosCalculados)
-                .orElse(0.0);
+        double ajustePercentual = pontosAtuais * 0.02;
+        ajustePercentual = Math.max(-0.12, Math.min(0.12, ajustePercentual));
 
-        if (pontosAnteriores <= 0) {
-            return Math.round(valorAnterior * 100.0) / 100.0;
+        if (pontosAtuais > 0 && ajustePercentual < 0.01) {
+            ajustePercentual = 0.01;
         }
 
-        double diferencaRelativa = (pontosAtuais - pontosAnteriores) / pontosAnteriores;
-        double ajustePercentual = Math.max(-0.25, Math.min(0.25, diferencaRelativa * 0.20));
+        if (pontosAtuais < 0 && ajustePercentual > -0.01) {
+            ajustePercentual = -0.01;
+        }
+
         double valorAtualizado = valorAnterior * (1 + ajustePercentual);
         return Math.round(valorAtualizado * 100.0) / 100.0;
     }

@@ -272,8 +272,13 @@ public class CampeonatoRodadaService {
             Long equipeLigaId = entry.getKey();
             java.util.List<Escalacao> escalacoes = entry.getValue();
 
-            // Calcular patrimônio = soma dos valor_atual de cada atleta escalado
+            // Calcular patrimônio = patrimônio restante da equipe + soma dos valor_atual dos atletas escalados
             double patrimonioAtualizado = 0.0;
+            java.util.Optional<EquipeLiga> equipeLigaOpt = equipeLigaRepository.findById(equipeLigaId);
+            if (equipeLigaOpt.isPresent() && equipeLigaOpt.get().getPatrimonio() != null) {
+                patrimonioAtualizado = equipeLigaOpt.get().getPatrimonio();
+            }
+
             for (Escalacao esc : escalacoes) {
                 Atleta atleta = esc.getAtleta();
                 
@@ -310,7 +315,6 @@ public class CampeonatoRodadaService {
             }
 
             // Atualizar patrimônio da equipeLiga
-            java.util.Optional<EquipeLiga> equipeLigaOpt = equipeLigaRepository.findById(equipeLigaId);
             if (equipeLigaOpt.isPresent()) {
                 EquipeLiga equipeLiga = equipeLigaOpt.get();
                 equipeLiga.setPatrimonio(patrimonioAtualizado);

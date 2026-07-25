@@ -241,11 +241,11 @@ export default function CriarLigaPage() {
 
               {/* Regras de Pontuação */}
               <Field>
-                <FieldLabel>Regras de Pontuacao</FieldLabel>
+                <FieldLabel>Regras de Pontuação</FieldLabel>
                 <div className="space-y-4">
                   <div>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Selecione as acoes que darao pontos na sua liga e defina a pontuacao para cada uma.
+                      Selecione as ações que darão pontos na sua liga e defina a pontuação para cada uma.
                     </p>
                     <div className="grid gap-2">
                       {acoesPontuacao.map((acao) => (
@@ -280,7 +280,7 @@ export default function CriarLigaPage() {
 
                   {selectedAcoes.length > 0 && (
                     <div className="space-y-3">
-                      <h4 className="font-medium text-sm">Pontuacao Definida</h4>
+                      <h4 className="font-medium text-sm">Pontuação Definida</h4>
                       {selectedAcoes.map((acaoId) => {
                         const acao = acoesPontuacao.find(a => a.id === acaoId)!
                         return (
